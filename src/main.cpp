@@ -11,6 +11,7 @@ CPE/CSC 471 Lab base code Wood/Dunn/Eckhardt
 #include "MatrixStack.h"
 
 #include "WindowManager.h"
+#include "camera.h"
 #include "Shape.h"
 // value_ptr for glm
 #include <glm/gtc/type_ptr.hpp>
@@ -34,41 +35,6 @@ double get_last_elapsed_time()
 	lasttime = actualtime;
 	return difference;
 }
-class camera
-{
-public:
-	glm::vec3 pos, rot;
-	int w, a, s, d;
-	camera()
-	{
-		w = a = s = d = 0;
-		pos = rot = glm::vec3(0, 0, 0);
-	}
-	glm::mat4 process(double ftime)
-	{
-		float speed = 0;
-		if (w == 1)
-		{
-			speed = 10*ftime;
-		}
-		else if (s == 1)
-		{
-			speed = -10*ftime;
-		}
-		float yangle=0;
-		if (a == 1)
-			yangle = -3*ftime;
-		else if(d==1)
-			yangle = 3*ftime;
-		rot.y += yangle;
-		glm::mat4 R = glm::rotate(glm::mat4(1), rot.y, glm::vec3(0, 1, 0));
-		glm::vec4 dir = glm::vec4(0, 0, speed,1);
-		dir = dir*R;
-		pos += glm::vec3(dir.x, dir.y, dir.z);
-		glm::mat4 T = glm::translate(glm::mat4(1), pos);
-		return R*T;
-	}
-};
 
 camera mycam;
 
@@ -301,6 +267,7 @@ public:
         raymarchShader->addUniform("V");
         raymarchShader->addUniform("M");
         raymarchShader->addUniform("iTime");
+        raymarchShader->addUniform("campos");
         raymarchShader->addUniform("iResolution");
         raymarchShader->addAttribute("vertPos");
         raymarchShader->addAttribute("vertTex");
@@ -314,12 +281,16 @@ public:
         float aspect = width / (float)height;
         glViewport(0, 0, width, height);
 
-        auto P = std::make_shared<MatrixStack>();
-        P->pushMatrix();
-        P->perspective(70., width, height, 0.1, 100.0f);
-        glm::mat4 M, V, S, T;
+        //auto P = std::make_shared<MatrixStack>();
+        //P->pushMatrix();
+        //P->perspective(70., width, height, 0.1, 100.0f);
+        //glm::mat4 M, V, S, T;
 
-        V = glm::mat4(1);
+        //V = glm::mat4(1);
+
+        glm::mat4 V, P, M;
+        P = glm::perspective((float)(3.14159 / 4.), (float)((float)width / (float)height), 0.1f, 1000.0f); //so much type casting... GLM metods are quite funny ones
+        V = mycam.get_viewmatrix();
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -329,15 +300,19 @@ public:
         float iResolution[2] = { width, height };
 
         M = glm::scale(glm::mat4(1), glm::vec3(1.2, 1, 1)) * glm::translate(glm::mat4(1), glm::vec3(-0.5, -0.5, -1));
-        glUniformMatrix4fv(raymarchShader->getUniform("P"), 1, GL_FALSE, glm::value_ptr(P->topMatrix()));
+        glUniformMatrix4fv(raymarchShader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
         glUniformMatrix4fv(raymarchShader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
         glUniformMatrix4fv(raymarchShader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
         glUniform1f(raymarchShader->getUniform("iTime"), glfwGetTime());
         glUniform2fv(raymarchShader->getUniform("iResolution"), 1, iResolution);
         glBindVertexArray(VertexArrayIDBox);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
         raymarchShader->unbind();
+
+        mycam.process();
+        //cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
 
     }
 
@@ -359,7 +334,7 @@ int main(int argc, char **argv)
 	/* your main will always include a similar set up to establish your window
 		and GL context, etc. */
 	WindowManager * windowManager = new WindowManager();
-	windowManager->init(1920, 1080);
+	windowManager->init(1280, 720);
 	windowManager->setEventCallbacks(application);
 	application->windowManager = windowManager;
 

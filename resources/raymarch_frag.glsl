@@ -7,9 +7,13 @@ uniform vec3 campos;
 uniform float iTime;
 uniform vec2 iResolution;
 
+uniform mat4 P;
+uniform mat4 V;
+uniform mat4 M;
+
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
-const float MAX_DIST = 100.0;
+const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
 
 mat3 rotateX(float theta) {
@@ -213,20 +217,27 @@ vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 e
 
 mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
     // Based on gluLookAt man page
-    vec3 f = normalize(center - eye);
-    vec3 s = normalize(cross(f, up));
-    vec3 u = cross(s, f);
-    return mat3(s, u, -f);
+    vec3 cameraDirection = normalize(center - eye);
+    vec3 cameraRight = normalize(cross(cameraDirection, up));
+    vec3 cameraUp = cross(cameraRight, cameraDirection);
+    return mat3(cameraRight, cameraUp, -cameraDirection);
 }
 
 void main( )
 {
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
-    vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
+    //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
+    vec3 eye = vec3(8.0, 5.0, 7.0);
+    eye += campos;
+
+    //vec4 tpos =  M * vec4(eye, 1.0);
+    //vec4 newDir = P * V * M * vec4(eye, 1.0);
+    //viewDir *= newDir.xyz;
+    //vec4 test = P * V * vec4(viewDir, 1);
     
-    mat3 viewToWorld = viewMatrix(eye, vec3(0.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0));
+    mat3 viewToWorld = viewMatrix(eye, eye + vec3(0.0, 0.0, -1.0), vec3(0.0, 1.0, 0.0));
     
-    vec3 worldDir = viewToWorld * viewDir;
+    vec3 worldDir = viewToWorld * viewDir.xyz;
     
     float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
     
