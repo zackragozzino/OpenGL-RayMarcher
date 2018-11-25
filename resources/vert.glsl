@@ -10,6 +10,6 @@ out vec2 fragCoord;
 
 void main()
 {
-    gl_Position = P * V * M * vertPos;
+    gl_Position =vertPos;
     fragCoord = vertTex * iResolution;
 }

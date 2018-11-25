@@ -239,12 +239,12 @@ public:
         // front
         int verccount = 0;
 
-        rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 0.0;
-        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 0.0;
-        rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 0.0;
-        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 0.0;
-        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 0.0;
-        rectangle_vertices[verccount++] = 0.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 0.0;
+        rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = -1.0;
+        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = -1.0;
+        rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = -1.0;
+        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = -1.0;
+        rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = -1.0;
+        rectangle_vertices[verccount++] = -1.0, rectangle_vertices[verccount++] = 1.0, rectangle_vertices[verccount++] = -1.0;
 
 
         //actually memcopy the data - only do this once
@@ -277,11 +277,6 @@ public:
         //key function to get up how many elements to pull out at a time (3)
         glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
 
-        //~~~~~~~~~~~~~~~~~~~~~~
-
-		//glEnable(GL_BLEND);
-		//glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	}
 
 	//General OGL initialization - set OGL state here
@@ -299,7 +294,7 @@ public:
         raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_frag.glsl");
         if (!raymarchShader->init())
         {
-            std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
+                std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
             exit(1);
         }
         raymarchShader->addUniform("P");
@@ -364,7 +359,7 @@ int main(int argc, char **argv)
 	/* your main will always include a similar set up to establish your window
 		and GL context, etc. */
 	WindowManager * windowManager = new WindowManager();
-	windowManager->init(720, 720);
+	windowManager->init(1920, 1080);
 	windowManager->setEventCallbacks(application);
 	application->windowManager = windowManager;
 

@@ -42,6 +42,16 @@ mat3 rotateZ(float theta) {
     );
 }
 
+vec2 rotate(vec2 a, float b)
+{
+    float c = cos(b);
+    float s = sin(b);
+    return vec2(
+        a.x * c - a.y * s,
+        a.x * s + a.y * c
+    );
+}
+
 float intersectSDF(float distA, float distB) {
     return max(distA, distB);
 }
@@ -55,6 +65,7 @@ float differenceSDF(float distA, float distB) {
 }
 
 float boxSDF(vec3 p, vec3 size) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
     vec3 d = abs(p) - (size / 2.0);
     
     // Assuming p is inside the cube, how far is it from the surface?
@@ -69,10 +80,12 @@ float boxSDF(vec3 p, vec3 size) {
 }
 
 float sphereSDF(vec3 p, float r) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
     return length(vec3(mod(p.x, 0), p.y, p.z)) - r;
 }
 
 float cylinderSDF(vec3 p, float h, float r) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
     // How far inside or outside the cylinder the point is, radially
     float inOutRadius = length(p.xy) - r;
     
@@ -92,7 +105,9 @@ float cylinderSDF(vec3 p, float h, float r) {
 
 float sceneSDF(vec3 samplePoint) {    
     // Slowly spin the whole scene
-    samplePoint = rotateY(iTime / 2.0) * samplePoint;
+    //samplePoint = rotateY(iTime / 2.0) * samplePoint;
+    samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y, mod(samplePoint.z + 2, 4) - 2);
+    //samplePoint.xy = rotate(samplePoint.xy, samplePoint.z*.05);
     
     float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
     float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
