@@ -36,7 +36,83 @@ double get_last_elapsed_time()
 	return difference;
 }
 
-camera mycam;
+class Mouse
+{
+private:
+    bool mousemove = false;
+
+    //Mouse movement vars
+    bool firstMouse = true;
+    float lastX, lastY, yaw, pitch;
+
+public:
+    bool is_mousemove() { return mousemove; }
+    void swap_mousemove(GLFWwindow *window)
+    {
+        if (!mousemove)
+        {
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
+            double dcurrentx, dcurrenty;
+            glfwGetCursorPos(window, &dcurrentx, &dcurrenty);
+            holdx = dcurrentx;
+            holdy = dcurrenty;
+        }
+        else
+            glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
+        mousemove = !mousemove;
+    }
+
+    int holdx, holdy;
+    int currentx, currenty;
+    //void set_current(bool )
+    Mouse() {}
+    void process(GLFWwindow *window, vec3 *camerarotation)
+    {
+        if (!mousemove) return;
+        //double dcurrentx, dcurrenty;
+        //glfwGetCursorPos(window, &dcurrentx, &dcurrenty);
+        //currentx = dcurrentx;
+        //currenty = dcurrenty;
+        //vec2 diff = vec2(holdx - currentx, holdy - currenty);
+        //glfwSetCursorPos(window, (double)holdx, (double)holdy);
+        //*camerarotation -= (float)0.005*vec3(diff.y, diff.x, 0);
+
+        double xpos, ypos;
+        glfwGetCursorPos(window, &xpos, &ypos);
+
+        if (firstMouse)
+        {
+            lastX = xpos;
+            lastY = ypos;
+            firstMouse = false;
+        }
+
+        float xoffset = xpos - lastX;
+        float yoffset = lastY - ypos;
+        lastX = xpos;
+        lastY = ypos;
+
+        float sensitivity = 0.05;
+        xoffset *= sensitivity;
+        yoffset *= sensitivity;
+
+        yaw += xoffset;
+        pitch += yoffset;
+
+        if (pitch > 89.0f)
+            pitch = 89.0f;
+        if (pitch < -89.0f)
+            pitch = -89.0f;
+
+        glm::vec3 front;
+        front.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+        front.y = sin(glm::radians(pitch));
+        front.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+        *camerarotation = glm::normalize(front);
+
+    }
+};
+
 
 class Application : public EventCallbacks
 {
@@ -44,6 +120,9 @@ class Application : public EventCallbacks
 public:
 
 	WindowManager * windowManager = nullptr;
+    Mouse mouse;
+    camera mycam;
+    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 
 	// Our shader program
 	std::shared_ptr<Program> raymarchShader;
@@ -100,29 +179,16 @@ public:
 		}
 	}
 
-	// callback for the mouse when clicked move the triangle when helper functions
-	// written
-	void mouseCallback(GLFWwindow *window, int button, int action, int mods)
-	{
-		double posX, posY;
-		float newPt[2];
-		if (action == GLFW_PRESS)
-		{
-			glfwGetCursorPos(window, &posX, &posY);
-			std::cout << "Pos X " << posX <<  " Pos Y " << posY << std::endl;
+    void mouseCallback(GLFWwindow *window, int button, int action, int mods)
+    {
+        double posX, posY;
 
-			//change this to be the points converted to WORLD
-			//THIS IS BROKEN< YOU GET TO FIX IT - yay!
-			newPt[0] = 0;
-			newPt[1] = 0;
+        if (action == GLFW_PRESS)
+        {
+            mouse.swap_mousemove(windowManager->getHandle());
+        }
 
-			std::cout << "converted:" << newPt[0] << " " << newPt[1] << std::endl;
-			glBindBuffer(GL_ARRAY_BUFFER, MeshPosID);
-			//update the vertex array with the updated points
-			glBufferSubData(GL_ARRAY_BUFFER, sizeof(float)*6, sizeof(float)*2, newPt);
-			glBindBuffer(GL_ARRAY_BUFFER, 0);
-		}
-	}
+    }
 
 	//if the window is resized, capture the new size and reset the viewport
 	void resizeCallback(GLFWwindow *window, int in_width, int in_height)
@@ -268,6 +334,7 @@ public:
         raymarchShader->addUniform("M");
         raymarchShader->addUniform("iTime");
         raymarchShader->addUniform("campos");
+        raymarchShader->addUniform("cameraFront");
         raymarchShader->addUniform("iResolution");
         raymarchShader->addAttribute("vertPos");
         raymarchShader->addAttribute("vertTex");
@@ -280,30 +347,15 @@ public:
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         float aspect = width / (float)height;
         glViewport(0, 0, width, height);
-
-        //auto P = std::make_shared<MatrixStack>();
-        //P->pushMatrix();
-        //P->perspective(70., width, height, 0.1, 100.0f);
-        //glm::mat4 M, V, S, T;
-
-        //V = glm::mat4(1);
-
-        glm::mat4 V, P, M;
-        P = glm::perspective((float)(3.14159 / 4.), (float)((float)width / (float)height), 0.1f, 1000.0f); //so much type casting... GLM metods are quite funny ones
-        V = mycam.get_viewmatrix();
+        float iResolution[2] = { width, height };
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         raymarchShader->bind();
-
-        float iResolution[2] = { width, height };
-
-        M = glm::scale(glm::mat4(1), glm::vec3(1.2, 1, 1)) * glm::translate(glm::mat4(1), glm::vec3(-0.5, -0.5, -1));
-        glUniformMatrix4fv(raymarchShader->getUniform("P"), 1, GL_FALSE, &P[0][0]);
-        glUniformMatrix4fv(raymarchShader->getUniform("V"), 1, GL_FALSE, &V[0][0]);
-        glUniformMatrix4fv(raymarchShader->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        
         glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
+        glUniform3fv(raymarchShader->getUniform("cameraFront"), 1, &cameraFront.x);
         glUniform1f(raymarchShader->getUniform("iTime"), glfwGetTime());
         glUniform2fv(raymarchShader->getUniform("iResolution"), 1, iResolution);
         glBindVertexArray(VertexArrayIDBox);
@@ -311,9 +363,12 @@ public:
 
         raymarchShader->unbind();
 
-        mycam.process();
-        //cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
+        //update mouse
+        mouse.process(windowManager->getHandle(), &cameraFront);
+        //update camera
+        mycam.process(&cameraFront);
 
+        //cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
     }
 
 
@@ -348,7 +403,6 @@ int main(int argc, char **argv)
 	while(! glfwWindowShouldClose(windowManager->getHandle()))
 	{
 		// Render scene.
-		//application->render();
         application->render_to_screen();
 
 		// Swap front and back buffers.

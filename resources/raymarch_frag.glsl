@@ -4,12 +4,9 @@ out vec4 fragColor;
 in vec2 fragCoord;
 
 uniform vec3 campos;
+uniform vec3 cameraFront;
 uniform float iTime;
 uniform vec2 iResolution;
-
-uniform mat4 P;
-uniform mat4 V;
-uniform mat4 M;
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
@@ -229,13 +226,8 @@ void main( )
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
     vec3 eye = vec3(8.0, 5.0, 7.0);
     eye += campos;
-
-    //vec4 tpos =  M * vec4(eye, 1.0);
-    //vec4 newDir = P * V * M * vec4(eye, 1.0);
-    //viewDir *= newDir.xyz;
-    //vec4 test = P * V * vec4(viewDir, 1);
     
-    mat3 viewToWorld = viewMatrix(eye, eye + vec3(0.0, 0.0, -1.0), vec3(0.0, 1.0, 0.0));
+    mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
     
     vec3 worldDir = viewToWorld * viewDir.xyz;
     

@@ -14,16 +14,12 @@
 
 #define PI 3.1415926
 #define PIH 3.1415926/2.
-#define MOVESPEED 0.5
-#define TURNSPEED 0.05
-
+#define MOVESPEED 1
 
 class camera
 {
 private:
 	glm::mat4 View;
-
-    glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
     glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 public:
 	glm::vec3 pos;
@@ -38,21 +34,21 @@ public:
 		pos = glm::vec3(0, 0, 0);
 		rot = glm::vec3(0, 0, 0);
 	}
-	void process()
+	void process(glm::vec3 *cameraFront)
 	{
 		float going_forward = 0.0;
 		if (w == 1)
-			going_forward -= MOVESPEED;
+			//going_forward -= MOVESPEED;
+            pos += *cameraFront * (float)MOVESPEED;
 		if (s == 1)
-			going_forward += MOVESPEED;
+			//going_forward += MOVESPEED;
+            pos -= *cameraFront * (float)MOVESPEED;
 		if (a == 1)
 			//rot.y -= TURNSPEED;
-            pos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * (float)MOVESPEED;
+            pos -= glm::normalize(glm::cross(*cameraFront, cameraUp)) * (float)MOVESPEED;
 		if (d == 1)
 			//rot.y += TURNSPEED;
-            pos += glm::normalize(glm::cross(cameraFront, cameraUp)) * (float)MOVESPEED;
-
-
+            pos += glm::normalize(glm::cross(*cameraFront, cameraUp)) * (float)MOVESPEED;
 
 		if (rot.x > PIH) rot.x = PIH;
 		if (rot.x < -PIH) rot.x = -PIH;
