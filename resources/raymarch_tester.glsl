@@ -4,6 +4,7 @@ out vec4 fragColor;
 in vec2 fragCoord;
 
 uniform vec3 campos;
+uniform vec3 cameraFront;
 uniform float iTime;
 uniform vec2 iResolution;
 
@@ -102,6 +103,8 @@ void main()
     vec3 cam = vec3(0,0,0);
     vec3 dir = normalize(vec3(uv,1));
 
+
+
     //cam.yz = rotate(cam.yz, .3);
     //dir.yz = rotate(dir.yz, .3);
 
@@ -109,8 +112,10 @@ void main()
     dir.xy = rotate(dir.xy, iTime*.1);
     //dir.yz = rotate(dir.yz, iTime*.3);
     //dir.zx = rotate(dir.zx, iTime*.3);
-
-    float t = 0.;
+    
+    cam += campos;
+    
+     float t = 0.;
     float k = 0.;
     int i;
     for(i=0;i<100;++i)
