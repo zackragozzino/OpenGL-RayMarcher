@@ -7,15 +7,43 @@ uniform vec3 campos;
 uniform vec3 cameraFront;
 uniform float iTime;
 uniform vec2 iResolution;
+uniform float fft_buff[10];
 
-const float phi = (1.+sqrt(5.))*.5;
+const int MAX_MARCHING_STEPS = 255;
+const float MIN_DIST = 0.0;
+const float MAX_DIST = 1000.0;
+const float EPSILON = 0.0001;
 
-float noise(vec3 p)
-{
-    return fract(
-        sin(
-            dot(p, vec3(12.4536728,432.45673828,32.473682))
-        )*43762.342);
+float totalDistance;
+
+mat3 rotateX(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(1, 0, 0),
+        vec3(0, c, -s),
+        vec3(0, s, c)
+    );
+}
+
+mat3 rotateY(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(c, 0, s),
+        vec3(0, 1, 0),
+        vec3(-s, 0, c)
+    );
+}
+
+mat3 rotateZ(float theta) {
+    float c = cos(theta);
+    float s = sin(theta);
+    return mat3(
+        vec3(c, -s, 0),
+        vec3(s, c, 0),
+        vec3(0, 0, 1)
+    );
 }
 
 vec2 rotate(vec2 a, float b)
@@ -28,118 +56,209 @@ vec2 rotate(vec2 a, float b)
     );
 }
 
-float sdIcosahedron(vec3 p, float r)
-{
-    const float q = (sqrt(5.)+3.)/2.;
-
-    const vec3 n1 = normalize(vec3(q,1,0));
-    const vec3 n2 = vec3(sqrt(3.)/3.);
-
-    p = abs(p/r);
-    float a = dot(p, n1.xyz);
-    float b = dot(p, n1.zxy);
-    float c = dot(p, n1.yzx);
-    float d = dot(p, n2.xyz)-n1.x;
-    return max(max(max(a,b),c)-n1.x,d)*r; // turn into (...)/r  for weird refractive effects when you subtract this shape
+float intersectSDF(float distA, float distB) {
+    return max(distA, distB);
 }
 
-float sdDodecahedron(vec3 p, float r)
-{
-    const vec3 n = normalize(vec3(phi,1,0));
-
-    p = abs(p/r);
-    float a = dot(p,n.xyz);
-    float b = dot(p,n.zxy);
-    float c = dot(p,n.yzx);
-    return (max(max(a,b),c)-n.x)*r;
+float unionSDF(float distA, float distB) {
+    return min(distA, distB);
 }
 
-float scene(vec3 p)
-{
-    p.xy = rotate(p.xy, p.z*.05);
-
-    float n = noise(floor((p)/4.));
-    float shape = fract((floor(p.x/4.)+floor(p.y/4.)*2.)/4.);
-    float spinOffset1 = floor(p.z/4.);
-    float spinOffset2 = floor(p.z/4.+2.);
-    float spinOffset3 = floor(p.z/4.+4.);
-
-
-    p = mod(p,4.)-2.;
-    p.xy = rotate(p.xy, iTime+spinOffset1);
-    p.yz = rotate(p.yz, iTime+spinOffset2);
-    p.zx = rotate(p.zx, iTime+spinOffset3);
-
-    if (shape < .25) {
-        return min(
-            sdDodecahedron(p,1.),
-            sdIcosahedron(p.zyx,1.)
-        );
-    } else if (shape < .5) {
-        return max(
-            sdDodecahedron(p,1.),
-            -sdIcosahedron(p.zyx,.9)
-        );
-    } else if (shape < .75) {
-        return max(
-            -sdDodecahedron(p,.95),
-            sdIcosahedron(p.zyx,1.)
-        );
-    } else {
-        return max(
-            sdDodecahedron(p,.95),
-            sdIcosahedron(p.zyx,1.)
-        );
-    }
+float differenceSDF(float distA, float distB) {
+    return max(distA, -distB);
 }
 
-void main()
-{
-    vec2 uv = fragCoord.xy / iResolution.xy - .5;
-    uv.x *= iResolution.x / iResolution.y;
-
-    uv *= 1.+length(uv)*.5;
-
-    vec3 cam = vec3(0,0,0);
-    vec3 dir = normalize(vec3(uv,1));
-
-
-
-    //cam.yz = rotate(cam.yz, .3);
-    //dir.yz = rotate(dir.yz, .3);
-
-    cam.z = iTime * 4.;
-    dir.xy = rotate(dir.xy, iTime*.1);
-    //dir.yz = rotate(dir.yz, iTime*.3);
-    //dir.zx = rotate(dir.zx, iTime*.3);
+float boxSDF(vec3 p, vec3 size) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
+    vec3 d = abs(p) - (size / 2.0);
     
-    cam += campos;
+    // Assuming p is inside the cube, how far is it from the surface?
+    // Result will be negative or zero.
+    float insideDistance = min(max(d.x, max(d.y, d.z)), 0.0);
     
-     float t = 0.;
-    float k = 0.;
-    int i;
-    for(i=0;i<100;++i)
-    {
-        k = scene(cam+dir*t)*.55;
-        t += k;
-        if (k < .001) break;
-    }
+    // Assuming p is outside the cube, how far is it from the surface?
+    // Result will be positive or zero.
+    float outsideDistance = length(max(d, 0.0));
+    
+    return insideDistance + outsideDistance;
+}
 
-    vec3 h = cam+dir*t;
-    vec2 o = vec2(.001, 0);
-    vec3 n = normalize(vec3(
-        scene(h+o.xyy)-scene(h-o.xyy),
-        scene(h+o.yxy)-scene(h-o.yxy),
-        scene(h+o.yyx)-scene(h-o.yyx)
+float sphereSDF(vec3 p, float r) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
+    return length(vec3(mod(p.x, 0), p.y, p.z)) - r;
+}
+
+float cylinderSDF(vec3 p, float h, float r) {
+    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
+    // How far inside or outside the cylinder the point is, radially
+    float inOutRadius = length(p.xy) - r;
+    
+    // How far inside or outside the cylinder is, axially aligned with the cylinder
+    float inOutHeight = abs(p.z) - h/2.0;
+    
+    // Assuming p is inside the cylinder, how far is it from the surface?
+    // Result will be negative or zero.
+    float insideDistance = min(max(inOutRadius, inOutHeight), 0.0);
+
+    // Assuming p is outside the cylinder, how far is it from the surface?
+    // Result will be positive or zero.
+    float outsideDistance = length(max(vec2(inOutRadius, inOutHeight), 0.0));
+    
+    return insideDistance + outsideDistance;
+}
+
+float sceneSDF(vec3 samplePoint) {    
+    // Slowly spin the whole scene
+    //samplePoint = rotateY(iTime / 2.0) * samplePoint;
+    samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y, mod(samplePoint.z + 2, 4) - 2);
+    //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, mod(samplePoint.y + 2, 4) - 2, mod(samplePoint.z + 2, 4) - 2);
+    //samplePoint.xy = rotate(samplePoint.xy, samplePoint.z*.05);
+    
+    float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
+    float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
+    float cylinder2 = cylinderSDF(rotateX(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
+    float cylinder3 = cylinderSDF(rotateY(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
+    
+    float cube = boxSDF(samplePoint, vec3(1.8, 1.8, 1.8));
+    
+    float sphere = sphereSDF(samplePoint, 1.2);
+    
+    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime + fft_buff[0]);
+    float ballRadius = 0.3;
+    float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, ballOffset, 0.0), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
+    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, 0.0, ballOffset), ballRadius));
+    
+    
+    
+    float csgNut = differenceSDF(intersectSDF(cube, sphere),
+                         unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
+    
+    return unionSDF(balls, csgNut);
+}
+
+float shortestDistanceToSurface(vec3 eye, vec3 marchingDirection, float start, float end) {
+    float depth = start;
+    for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
+        float dist = sceneSDF(eye + depth * marchingDirection);
+        if (dist < EPSILON) {
+            totalDistance += depth;
+			return depth;
+        }
+        depth += dist;
+        if (depth >= end) {
+            totalDistance += end;
+            return end;
+        }
+    }
+    totalDistance += end;
+    return end;
+}
+           
+vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
+    vec2 xy = fragCoord - size / 2.0;
+    float z = size.y / tan(radians(fieldOfView) / 2.0);
+    return normalize(vec3(xy, -z));
+}
+
+vec3 estimateNormal(vec3 p) {
+    return normalize(vec3(
+        sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
+        sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
+        sceneSDF(vec3(p.x, p.y, p.z  + EPSILON)) - sceneSDF(vec3(p.x, p.y, p.z - EPSILON))
     ));
+}
 
-    float iterFog = pow(1.-(float(i)/100.), 2.);
-    float light = pow(max(0.,n.x*.5+.5),2.);
-    float vignette = smoothstep(2.,0.,length(uv));
-    vec3 a = mix(vec3(.01,.01,.1),vec3(0,1,1),iterFog);
-    vec3 b = mix(vec3(0,0,0),vec3(1,sin(iTime*.4)*.5+.5,cos(iTime*.4)*.5+.5),light*iterFog*4.);
-    fragColor.rgb = a + b;
-    fragColor *= vignette;
+vec3 phongContribForLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye,
+                          vec3 lightPos, vec3 lightIntensity) {
+    vec3 N = estimateNormal(p);
+    vec3 L = normalize(lightPos - p);
+    vec3 V = normalize(eye - p);
+    vec3 R = normalize(reflect(-L, N));
     
-    //fragColor.rgb = vec3(1,0,0);
+    float dotLN = dot(L, N);
+    float dotRV = dot(R, V);
+    
+    if (dotLN < 0.0) {
+        // Light not visible from this point on the surface
+        return vec3(0.0, 0.0, 0.0);
+    } 
+    
+    if (dotRV < 0.0) {
+        // Light reflection in opposite direction as viewer, apply only diffuse
+        // component
+        return lightIntensity * (k_d * dotLN);
+    }
+    return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
+}
+
+vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye) {
+    const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
+    vec3 color = ambientLight * k_a;
+    
+    vec3 light1Pos = vec3(4.0 * sin(iTime),
+                          2.0,
+                          4.0 * cos(iTime));
+    vec3 light1Intensity = vec3(0.4, 0.4, 0.4);
+    
+    color += phongContribForLight(k_d, k_s, alpha, p, eye,
+                                  light1Pos,
+                                  light1Intensity);
+    
+    vec3 light2Pos = vec3(2.0 * sin(0.37 * iTime),
+                          2.0 * cos(0.37 * iTime),
+                          2.0);
+    vec3 light2Intensity = vec3(0.4, 0.4, 0.4);
+    
+    color += phongContribForLight(k_d, k_s, alpha, p, eye,
+                                  light2Pos,
+                                  light2Intensity);    
+    return color;
+}
+
+mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
+    // Based on gluLookAt man page
+    vec3 cameraDirection = normalize(center - eye);
+    vec3 cameraRight = normalize(cross(cameraDirection, up));
+    vec3 cameraUp = cross(cameraRight, cameraDirection);
+    return mat3(cameraRight, cameraUp, -cameraDirection);
+}
+
+void main( )
+{
+	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
+    //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
+    totalDistance = 0;
+    vec3 eye = vec3(8.0, 5.0, 7.0);
+    eye += campos;
+    
+    mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
+    
+    vec3 worldDir = viewToWorld * viewDir.xyz;
+    
+    float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
+    
+    if (dist > MAX_DIST - EPSILON) {
+        // Didn't hit anything
+        fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+		return;
+    }
+    
+    // The closest point on the surface to the eyepoint along the view ray
+    vec3 p = eye + dist * worldDir;
+    
+    // Use the surface normal as the ambient color of the material
+    vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
+    vec3 K_d = K_a;
+    vec3 K_s = vec3(1.0, 1.0, 1.0);
+    float shininess = 10.0;
+    
+    vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
+    color.r = fft_buff[0];
+    color.g = fft_buff[1];
+    //color.b = fft_buff[2];
+    fragColor = vec4(color, 1.0);
 }

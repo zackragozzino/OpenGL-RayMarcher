@@ -10,6 +10,9 @@
     <ClCompile Include="WindowManager.cpp" />
     <ClCompile Include="MatrixStack.cpp" />
     <ClCompile Include="Shape.cpp" />
+    <ClCompile Include="kiss_fft.c" />
+    <ClCompile Include="recAudio.cpp" />
+    <ClCompile Include="recordAudio.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Program.h" />
@@ -20,6 +23,10 @@
     <ClInclude Include="tiny_obj_loader.h" />
     <ClInclude Include="stb_image.h" />
     <ClInclude Include="camera.h" />
+    <ClInclude Include="_kiss_fft_guts.h" />
+    <ClInclude Include="kiss_fft.h" />
+    <ClInclude Include="kissfft.hh" />
+    <ClInclude Include="recordAudio.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ext">
@@ -49,6 +56,12 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\resources\raymarch_tester.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\fft_shader_fragment.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\fft_shader_vertex.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

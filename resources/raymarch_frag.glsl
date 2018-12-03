@@ -7,11 +7,14 @@ uniform vec3 campos;
 uniform vec3 cameraFront;
 uniform float iTime;
 uniform vec2 iResolution;
+uniform float fft_buff[10];
 
 const int MAX_MARCHING_STEPS = 255;
 const float MIN_DIST = 0.0;
 const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
+
+float totalDistance;
 
 mat3 rotateX(float theta) {
     float c = cos(theta);
@@ -108,6 +111,7 @@ float sceneSDF(vec3 samplePoint) {
     // Slowly spin the whole scene
     //samplePoint = rotateY(iTime / 2.0) * samplePoint;
     samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y, mod(samplePoint.z + 2, 4) - 2);
+    //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, mod(samplePoint.y + 2, 4) - 2, mod(samplePoint.z + 2, 4) - 2);
     //samplePoint.xy = rotate(samplePoint.xy, samplePoint.z*.05);
     
     float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
@@ -119,7 +123,7 @@ float sceneSDF(vec3 samplePoint) {
     
     float sphere = sphereSDF(samplePoint, 1.2);
     
-    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime);
+    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime + fft_buff[0]);
     float ballRadius = 0.3;
     float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
     balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
@@ -141,13 +145,16 @@ float shortestDistanceToSurface(vec3 eye, vec3 marchingDirection, float start, f
     for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
         float dist = sceneSDF(eye + depth * marchingDirection);
         if (dist < EPSILON) {
+            totalDistance += depth;
 			return depth;
         }
         depth += dist;
         if (depth >= end) {
+            totalDistance += end;
             return end;
         }
     }
+    totalDistance += end;
     return end;
 }
            
@@ -224,6 +231,7 @@ void main( )
 {
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
+    totalDistance = 0;
     vec3 eye = vec3(8.0, 5.0, 7.0);
     eye += campos;
     
@@ -249,6 +257,8 @@ void main( )
     float shininess = 10.0;
     
     vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-    
+    color.r = fft_buff[0];
+    color.g = fft_buff[1];
+    //color.b = fft_buff[2];
     fragColor = vec4(color, 1.0);
 }
