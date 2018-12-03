@@ -15,6 +15,8 @@ const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
 
 float totalDistance;
+vec3 eye;
+vec3 debugColor = vec3(0,0,0);
 
 mat3 rotateX(float theta) {
     float c = cos(theta);
@@ -110,9 +112,38 @@ float cylinderSDF(vec3 p, float h, float r) {
 float sceneSDF(vec3 samplePoint) {    
     // Slowly spin the whole scene
     //samplePoint = rotateY(iTime / 2.0) * samplePoint;
-    samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y, mod(samplePoint.z + 2, 4) - 2);
+    //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y - fft_buff[0] * 2, mod(samplePoint.z + 2, 4) - 2);
     //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, mod(samplePoint.y + 2, 4) - 2, mod(samplePoint.z + 2, 4) - 2);
     //samplePoint.xy = rotate(samplePoint.xy, samplePoint.z*.05);
+    
+    //vec3 eye = vec3(8.0, 5.0, 7.0);
+    float heightVal = 0;
+    float intervalDistance = 25;
+
+    vec3 camPos = vec3(eye.x, 5, eye.z);
+
+    float rayDist = distance(camPos, samplePoint);
+    int level = 0;
+
+    for(int i = 0; i < 10; i++){
+        if(rayDist <= (i+1) * intervalDistance){
+            heightVal = fft_buff[i];
+            debugColor.r += (i+1) * 0.2;
+            level = i;
+            break;
+        }
+    }
+    
+    switch(level){
+        case 0: debugColor = vec3(1,0,0); break;
+        case 1: debugColor = vec3(0,1,0); break;
+        case 2: debugColor = vec3(0,0,1); break;
+        case 3: debugColor = vec3(1,1,0); break;
+        case 4: debugColor = vec3(0,1,1); break;
+        default: debugColor = vec3(1,0,1); break;
+    }
+
+    samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y - (heightVal * 5), mod(samplePoint.z + 2, 4) - 2);
     
     float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
     float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
@@ -123,7 +154,7 @@ float sceneSDF(vec3 samplePoint) {
     
     float sphere = sphereSDF(samplePoint, 1.2);
     
-    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime + fft_buff[0]);
+    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime);
     float ballRadius = 0.3;
     float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
     balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
@@ -232,7 +263,7 @@ void main( )
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
     totalDistance = 0;
-    vec3 eye = vec3(8.0, 5.0, 7.0);
+    eye = vec3(8.0, 5.0, 7.0 + iTime * 5);
     eye += campos;
     
     mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
@@ -257,8 +288,9 @@ void main( )
     float shininess = 10.0;
     
     vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-    color.r = fft_buff[0];
-    color.g = fft_buff[1];
+    //color.r = fft_buff[0];
+    //color.g = fft_buff[1];
     //color.b = fft_buff[2];
+    color = debugColor;
     fragColor = vec4(color, 1.0);
 }
