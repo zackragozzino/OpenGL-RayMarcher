@@ -6,6 +6,7 @@ in vec2 fragCoord;
 uniform vec3 campos;
 uniform vec3 cameraFront;
 uniform float iTime;
+uniform float vizSpeed;
 uniform vec2 iResolution;
 uniform float fft_buff[10];
 

@@ -6,6 +6,7 @@ in vec2 fragCoord;
 uniform vec3 campos;
 uniform vec3 cameraFront;
 uniform float iTime;
+uniform float vizSpeed;
 uniform vec2 iResolution;
 uniform float fft_buff[10];
 
@@ -56,6 +57,11 @@ vec2 rotate(vec2 a, float b)
         a.x * c - a.y * s,
         a.x * s + a.y * c
     );
+}
+
+float sdPlane( vec3 p )
+{
+	return p.y;
 }
 
 float intersectSDF(float distA, float distB) {
@@ -144,7 +150,8 @@ float sceneSDF(vec3 samplePoint) {
     }
 
     samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y - (heightVal * 5), mod(samplePoint.z + 2, 4) - 2);
-    
+    //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, mod(samplePoint.y + 2, 24) - (heightVal * 5), mod(samplePoint.z + 2, 4) - 2);
+
     float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
     float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
     float cylinder2 = cylinderSDF(rotateX(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
@@ -168,7 +175,8 @@ float sceneSDF(vec3 samplePoint) {
     float csgNut = differenceSDF(intersectSDF(cube, sphere),
                          unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
     
-    return unionSDF(balls, csgNut);
+    //return unionSDF(balls, csgNut);
+    return sphere;
 }
 
 float shortestDistanceToSurface(vec3 eye, vec3 marchingDirection, float start, float end) {
@@ -263,7 +271,8 @@ void main( )
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
     totalDistance = 0;
-    eye = vec3(8.0, 5.0, 7.0 + iTime * 5);
+    float speed = iTime * 5 * fft_buff[0];
+    eye = vec3(8.0, 5.0, 7.0 + vizSpeed * 2 + iTime*3);
     eye += campos;
     
     mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));

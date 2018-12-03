@@ -201,6 +201,8 @@ public:
     camera mycam;
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 
+    float vizSpeed = 0;
+
     bool showVisualizer = false;
 
 	// Our shader program
@@ -448,6 +450,7 @@ public:
         raymarchShader->addUniform("V");
         raymarchShader->addUniform("M");
         raymarchShader->addUniform("iTime");
+        raymarchShader->addUniform("vizSpeed");
         raymarchShader->addUniform("campos");
         raymarchShader->addUniform("cameraFront");
         raymarchShader->addUniform("iResolution");
@@ -624,11 +627,14 @@ public:
         cout << "------" << endl;
 
         raymarchShader->bind();
+
+        vizSpeed += fft_buff[0] + fft_buff[1];
         
         glUniform1fv(raymarchShader->getUniform("fft_buff"), 10, fft_buff);
         glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
         glUniform3fv(raymarchShader->getUniform("cameraFront"), 1, &cameraFront.x);
         glUniform1f(raymarchShader->getUniform("iTime"), glfwGetTime());
+        glUniform1f(raymarchShader->getUniform("vizSpeed"), vizSpeed);
         glUniform2fv(raymarchShader->getUniform("iResolution"), 1, iResolution);
         glBindVertexArray(VertexArrayIDBox);
         glDrawArrays(GL_TRIANGLES, 0, 6);
