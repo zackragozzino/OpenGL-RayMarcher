@@ -11,6 +11,7 @@
 #include "glm/vec4.hpp"
 #include "glm/mat4x4.hpp"
 #include "glm/gtc/matrix_transform.hpp"
+#include "double_algebra.h"
 
 #define PI 3.1415926
 #define PIH 3.1415926/2.
@@ -25,6 +26,7 @@ public:
 	glm::vec3 pos;
 	glm::vec3 rot;
 	int w, a, s, d;
+    double_mat_ trackingM;
 	
 	glm::mat4 get_viewmatrix() { return View; }
 	camera()

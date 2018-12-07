@@ -13,6 +13,8 @@
     <ClCompile Include="kiss_fft.c" />
     <ClCompile Include="recAudio.cpp" />
     <ClCompile Include="recordAudio.cpp" />
+    <ClCompile Include="OpenVRclass.cpp" />
+    <ClCompile Include="double_algebra.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Program.h" />
@@ -27,6 +29,8 @@
     <ClInclude Include="kiss_fft.h" />
     <ClInclude Include="kissfft.hh" />
     <ClInclude Include="recordAudio.h" />
+    <ClInclude Include="OpenVRclass.h" />
+    <ClInclude Include="double_algebra.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ext">
@@ -65,6 +69,12 @@
       <Filter>shaders</Filter>
     </None>
     <None Include="..\resources\raymarch_tester2.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\FBOfragment.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\FBOvertex.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>

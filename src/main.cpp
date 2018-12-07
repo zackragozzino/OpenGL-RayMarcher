@@ -10,6 +10,7 @@ CPE/CSC 471 Lab base code Wood/Dunn/Eckhardt
 #include "Program.h"
 #include "recordAudio.h"
 #include "MatrixStack.h"
+#include "OpenVRclass.h"
 
 #include "WindowManager.h"
 #include "camera.h"
@@ -23,6 +24,9 @@ using namespace std;
 using namespace glm;
 shared_ptr<Shape> shape;
 extern captureAudio actualAudioData;
+
+
+OpenVRApplication *vrapp = NULL;
 
 
 #define FFTW_ESTIMATEE (1U << 6)
@@ -650,9 +654,69 @@ public:
     }
 
 
+    void render_vr(int width, int height, glm::mat4 VRheadmatrix) {
+        //int width, height;
+        glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
+        float aspect = width / (float)height;
+        glViewport(0, 0, width, height);
+        float iResolution[2] = { width, height };
+
+        mycam.trackingM = VRheadmatrix;
+
+        // Clear framebuffer.
+        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+        //for (int i = 0; i < 10; i++)
+        //{
+        //    vec3 color = vec3(1, 0, (float)i / 10.);
+        //    glUniform3fv(prog->getUniform("colorext"), 1, &color.x);
+        //    float scaling = amplitude_on_frequency_10steps[i] * 0.2;
+        //    M = glm::translate(glm::mat4(1.0f), vec3(-4.5 + i, 2, -9)) * glm::scale(mat4(1), vec3(0.2 + scaling, 0.2 + scaling, 0.2 + scaling));
+        //    glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
+        //    shape->draw(prog, FALSE);
+        //}
+
+        aquire_fft_scaling_arrays();
+
+        float fft_buff[10];
+        for (int i = 0; i < 10; i++) {
+            fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.2 * 10;
+            cout << fft_buff[i] << " ";
+        }
+
+        cout << "------" << endl;
+
+        raymarchShader->bind();
+
+        vizSpeed += fft_buff[0] + fft_buff[1];
+
+        glUniform1fv(raymarchShader->getUniform("fft_buff"), 10, fft_buff);
+        glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
+        glUniform3fv(raymarchShader->getUniform("cameraFront"), 1, &cameraFront.x);
+        glUniform1f(raymarchShader->getUniform("iTime"), glfwGetTime());
+        glUniform1f(raymarchShader->getUniform("vizSpeed"), vizSpeed);
+        glUniform2fv(raymarchShader->getUniform("iResolution"), 1, iResolution);
+        glBindVertexArray(VertexArrayIDBox);
+        glDrawArrays(GL_TRIANGLES, 0, 6);
+
+        raymarchShader->unbind();
+
+        //update mouse
+        mouse.process(windowManager->getHandle(), &cameraFront);
+        //update camera
+        mycam.process(&cameraFront);
+
+    }
 	
 
 };
+
+Application *application = NULL;
+void renderfct(int w, int h, glm::mat4 VRheadmatrix)
+{
+    application->render_vr(w, h, VRheadmatrix);
+}
+
 //******************************************************************************************
 int main(int argc, char **argv)
 {
@@ -662,13 +726,18 @@ int main(int argc, char **argv)
 		resourceDir = argv[1];
 	}
 
-	Application *application = new Application();
+	application = new Application();
 
 	/* your main will always include a similar set up to establish your window
 		and GL context, etc. */
 	WindowManager * windowManager = new WindowManager();
-	windowManager->init(1280, 720);
-	windowManager->setEventCallbacks(application);
+
+    vrapp = new OpenVRApplication();
+
+	//windowManager->init(1280, 720);
+    windowManager->init(vrapp->get_render_width(), vrapp->get_render_height());
+    
+    windowManager->setEventCallbacks(application);
 	application->windowManager = windowManager;
 
 	/* This is the code that will likely change program to program as you
@@ -676,6 +745,7 @@ int main(int argc, char **argv)
 	// Initialize scene.
 	application->init(resourceDir);
 	application->initGeom();
+    vrapp->init_buffers(resourceDir);
 
     thread t1(start_recording);
 	// Loop until the user closes the window.
@@ -685,10 +755,13 @@ int main(int argc, char **argv)
         //application->render_to_screen();
         
         // Render the music visualizer.
-        if(application->showVisualizer)
-            application->render();
-        else
-            application->render_to_screen();
+        //if(application->showVisualizer)
+        //    application->render();
+        //else
+        //    application->render_to_screen();
+
+        vrapp->render_to_VR(renderfct);
+        vrapp->render_to_screen(1);
 
 		// Swap front and back buffers.
 		glfwSwapBuffers(windowManager->getHandle());
