@@ -51,6 +51,7 @@
     <None Include="..\resources\height_vertex.glsl" />
     <None Include="..\resources\raymarch_frag.glsl" />
     <None Include="..\resources\raymarch_tester.glsl" />
+    <None Include="..\resources\raymarch_tester2.glsl" />
     <None Include="..\resources\shader_fragment.glsl" />
     <None Include="..\resources\shader_vertex.glsl" />
     <None Include="..\resources\vert.glsl" />

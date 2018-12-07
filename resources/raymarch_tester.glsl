@@ -11,13 +11,28 @@ uniform vec2 iResolution;
 uniform float fft_buff[10];
 
 const int MAX_MARCHING_STEPS = 255;
-const float MIN_DIST = 0.0;
+const float MIN_DIST = 100;
 const float MAX_DIST = 1000.0;
 const float EPSILON = 0.0001;
 
-float totalDistance;
 vec3 eye;
 vec3 debugColor = vec3(0,0,0);
+vec3 offset;
+
+#define Scale 2.0
+// Decrease this for better performance
+#define Iterations 12
+#define normalDistance 0.0002
+#define Ambient 0.28452
+#define Jitter 0.05
+
+#define Ambient 0.28452
+#define Diffuse 0.57378
+#define Specular 0.07272
+#define LightDir vec3(1.0,1.0,-0.65048)
+#define LightColor vec3(1.0,0.666667,0.0)
+#define LightDir2 vec3(1.0,-0.62886,1.0)
+#define LightColor2 vec3(0.596078,0.635294,1.0)
 
 mat3 rotateX(float theta) {
     float c = cos(theta);
@@ -115,6 +130,44 @@ float cylinderSDF(vec3 p, float h, float r) {
     return insideDistance + outsideDistance;
 }
 
+// Geometric orbit trap. Creates the 'cube' look.
+float trap(vec3 p){
+	return  length(p.x-0.5-0.5*sin(iTime/10.0)); // <- cube forms 
+	//return  length(p.x-1.0); 
+	//return length(p.xz-vec2(1.0,1.0))-0.05; // <- tube forms
+	//return length(p); // <- no trap
+}
+
+float DE(in vec3 z)
+{	
+    z = vec3(mod(z.x + 2, 4) - 2, z.y, mod(z.z + 2, 4) - 2);
+  
+	// Folding 'tiling' of 3D space;
+	z  = abs(1.0-mod(z,2.0));
+	
+	float d = 1000.0;
+	float r;
+	for (int n = 0; n < Iterations; n++) {
+		z.xz = rotate(z.xz, iTime/18.0);
+		
+		// This is octahedral symmetry,
+		// with some 'abs' functions thrown in for good measure.
+		if (z.x+z.y<0.0) z.xy = -z.yx;
+		z = abs(z);
+		if (z.x+z.z<0.0) z.xz = -z.zx;
+		z = abs(z);
+		if (z.x-z.y<0.0) z.xy = z.yx;
+		z = abs(z);
+		if (z.x-z.z<0.0) z.xz = z.zx;
+		z = z*Scale - offset*(Scale-1.0);
+		z.yz = rotate(z.yz, -iTime/18.0);
+		
+		d = min(d, trap(z) * pow(Scale, -float(n+1)));
+	}
+	return d;
+}
+
+
 float sceneSDF(vec3 samplePoint) {    
     // Slowly spin the whole scene
     //samplePoint = rotateY(iTime / 2.0) * samplePoint;
@@ -174,7 +227,7 @@ float sceneSDF(vec3 samplePoint) {
     
     float csgNut = differenceSDF(intersectSDF(cube, sphere),
                          unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
-    
+    float dist = DE(samplePoint);
     //return unionSDF(balls, csgNut);
     return sphere;
 }
@@ -183,18 +236,86 @@ float shortestDistanceToSurface(vec3 eye, vec3 marchingDirection, float start, f
     float depth = start;
     for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
         float dist = sceneSDF(eye + depth * marchingDirection);
+        //float dist = DE(eye + depth * marchingDirection);
         if (dist < EPSILON) {
-            totalDistance += depth;
 			return depth;
         }
         depth += dist;
         if (depth >= end) {
-            totalDistance += end;
             return end;
         }
     }
-    totalDistance += end;
+    
     return end;
+}
+
+// Finite difference normal
+vec3 getNormal(in vec3 pos) {
+	vec3 e = vec3(0.0,normalDistance,0.0);
+    //return e; // ????
+
+	return normalize(vec3(
+			DE(pos+e.yxx)-DE(pos-e.yxx),
+			DE(pos+e.xyx)-DE(pos-e.xyx),
+			DE(pos+e.xxy)-DE(pos-e.xxy)));
+}
+
+// Two light source + env light
+vec3 getLight(in vec3 color, in vec3 normal, in vec3 dir) {
+	vec3 lightDir = normalize(LightDir);
+	float specular = pow(max(0.0,dot(lightDir,-reflect(lightDir, normal))),20.0); // Phong
+	float diffuse = max(0.0,dot(-normal, lightDir)); // Lambertian
+	
+	vec3 lightDir2 = normalize(LightDir2);
+	float specular2 = pow(max(0.0,dot(lightDir2,-reflect(lightDir2, normal))),20.0); // Phong
+	float diffuse2 = max(0.0,dot(-normal, lightDir2)); // Lambertian
+	
+	return
+
+		(Specular*specular)*LightColor+(diffuse*Diffuse)*(LightColor*color) +
+		(Specular*specular2)*LightColor2+(diffuse2*Diffuse)*(LightColor2*color);
+}
+
+// Solid color with a little bit of normal :-)
+vec3 getColor(vec3 normal, vec3 pos) {
+	return mix(vec3(1.0),abs(normal),0.3);
+    //return vec3(1,1,0);
+}
+
+vec3 toneMap(in vec3 c) {
+	c=pow(c,vec3(2.0));
+	vec3 x = max(vec3(0.),c-vec3(0.004));
+	c = (x*(6.2*x+.5))/(x*(6.2*x+1.7)+0.06);
+	return c;
+}
+
+float rand(vec2 co){
+	return fract(cos(dot(co,vec2(4.898,7.23))) * 23421.631);
+}
+
+vec4 raymarch(vec3 eye, vec3 marchingDirection, float start, float end) {
+    float depth = start;
+    float totalDistance = Jitter*rand(fragCoord+vec2(iTime));
+    
+    float distance;
+	int steps = 0;
+	vec3 pos;
+    for (int i=0; i < MAX_MARCHING_STEPS; i++) {
+		pos = eye + totalDistance * marchingDirection;
+		distance = DE(pos);
+		totalDistance += distance;
+		if (distance < EPSILON) break;
+		steps = i;
+	}
+
+    float smoothStep = float(steps) + distance/EPSILON;
+    float ao = 1.0-smoothStep/float(MAX_MARCHING_STEPS);
+
+    vec3 normal = getNormal(pos-marchingDirection*normalDistance*3.0);	
+	vec3 color = getColor(normal, pos);	
+
+    vec3 light = getLight(color, normal, marchingDirection);
+	return vec4(toneMap((color*Ambient+light)*ao),1.0);
 }
            
 vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
@@ -270,36 +391,58 @@ void main( )
 {
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
-    totalDistance = 0;
     float speed = iTime * 5 * fft_buff[0];
-    eye = vec3(8.0, 5.0, 7.0 + vizSpeed * 2 + iTime*3);
+    //eye = vec3(8.0, 5.0, 7.0 + vizSpeed * 2 + iTime);
+    eye = vec3(8.0, 5.0 - iTime * 0.5, 7.0);
     eye += campos;
     
     mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
     
     vec3 worldDir = viewToWorld * viewDir.xyz;
+
+    bool fractal = true;
+    if(!fractal){
+        float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
     
-    float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
+        if (dist > MAX_DIST - EPSILON) {
+            // Didn't hit anything
+            fragColor = vec4(0.0, 0.0, 0.0, 0.0);
+		    return;
+        }
     
-    if (dist > MAX_DIST - EPSILON) {
-        // Didn't hit anything
-        fragColor = vec4(0.0, 0.0, 0.0, 0.0);
-		return;
+        // The closest point on the surface to the eyepoint along the view ray
+        vec3 p = eye + dist * worldDir;
+    
+        // Use the surface normal as the ambient color of the material
+        vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
+        vec3 K_d = K_a;
+        vec3 K_s = vec3(1.0, 1.0, 1.0);
+        float shininess = 10.0;
+    
+        vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
+        color.r = fft_buff[0];
+        color.g = fft_buff[1];
+        color.b = fft_buff[2];
+        color = debugColor;
+        fragColor = vec4(color, 1.0);
     }
-    
-    // The closest point on the surface to the eyepoint along the view ray
-    vec3 p = eye + dist * worldDir;
-    
-    // Use the surface normal as the ambient color of the material
-    vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
-    vec3 K_d = K_a;
-    vec3 K_s = vec3(1.0, 1.0, 1.0);
-    float shininess = 10.0;
-    
-    vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-    //color.r = fft_buff[0];
-    //color.g = fft_buff[1];
-    //color.b = fft_buff[2];
-    color = debugColor;
-    fragColor = vec4(color, 1.0);
+    else{
+        offset = vec3(1.0+0.2*(cos(iTime/5.7)),0.3+0.1*(cos(iTime/1.7)),1.).xzy;;
+
+        vec2 coord =-1.0+2.0*fragCoord.xy/iResolution.xy;
+	    coord.x *= iResolution.x/iResolution.y;
+
+    	    vec3 camUp  = vec3(0,1,0);
+	    vec3 camRight = normalize(cross(eye,camUp));
+	    // Get direction for this pixel
+
+        //vec3 camPos = vec3(1.0,0.0,0.0);
+
+        vec3 camDir   = normalize(eye+cameraFront); // direction for center ray
+	
+	    // Get direction for this pixel
+	    vec3 rayDir = normalize(camDir + (coord.x*camRight + coord.y*camUp));
+
+        fragColor = raymarch(eye, worldDir, MIN_DIST, MAX_DIST);
+    }
 }
