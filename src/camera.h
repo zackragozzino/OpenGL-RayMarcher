@@ -14,7 +14,7 @@
 
 #define PI 3.1415926
 #define PIH 3.1415926/2.
-#define MOVESPEED 1
+#define MOVESPEED 0.04
 
 class camera
 {

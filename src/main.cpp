@@ -78,9 +78,9 @@ bool fft(float *amplitude_on_frequency, int &length)
     for (int i = 0; i < length / 2 && i < FFT_MAXSIZE; ++i)
     {
         float diff = amplitude_on_frequency_old[i] - amplitude_on_frequency[i];
-        float attack_factor = 0.5;//for going down
+        float attack_factor = 1;//for going down
         if (amplitude_on_frequency_old[i] < amplitude_on_frequency[i])
-            attack_factor = 0.5; //for going up
+            attack_factor = 1; //for going up
         diff *= attack_factor;
         amplitude_on_frequency[i] = amplitude_on_frequency_old[i] - diff;
     }
@@ -620,15 +620,16 @@ public:
         
         float fft_buff[10];
         for (int i = 0; i < 10; i++) {
-            fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.2 * 10;
-            cout << fft_buff[i] << " ";
+            //fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.2 * 10;
+            fft_buff[i] = amplitude_on_frequency_10steps[i] * 2;
+            //cout << fft_buff[i] << " ";
         }
 
-        cout << "------" << endl;
+        //cout << "------" << endl;
 
         raymarchShader->bind();
 
-        vizSpeed += fft_buff[0] + fft_buff[1];
+        vizSpeed += fft_buff[0] + fft_buff[1] + fft_buff[2];
         
         glUniform1fv(raymarchShader->getUniform("fft_buff"), 10, fft_buff);
         glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
@@ -646,7 +647,7 @@ public:
         //update camera
         mycam.process(&cameraFront);
 
-        //cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
+        cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
     }
 
 
