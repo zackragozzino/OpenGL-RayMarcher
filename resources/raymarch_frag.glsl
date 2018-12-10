@@ -1,4 +1,10 @@
 #version 330 core
+
+// based on :
+// https://www.shadertoy.com/view/XsX3z7#
+// Created by Mikael Hvidtfeldt Christensen
+// @SyntopiaDK
+
 out vec4 fragColor;
 
 in vec2 fragCoord;
@@ -9,13 +15,30 @@ uniform float iTime;
 uniform float vizSpeed;
 uniform vec2 iResolution;
 uniform float fft_buff[10];
+uniform mat4 VRdir;
+uniform int VR_Enabled;
 
-const int MAX_MARCHING_STEPS = 255;
-const float MIN_DIST = 0.0;
-const float MAX_DIST = 1000.0;
-const float EPSILON = 0.0001;
 
-float totalDistance;
+vec3 eye;
+vec3 offset;
+vec3 LightColor = vec3(1.0,0.7,0.0);
+vec3 LightColor2 = vec3(0.6, 0.63,1.0);
+float musicSpeed;
+
+// Decrease this for better performance
+#define Iterations 12
+
+#define Scale 2.0
+#define normalDistance 0.0002
+#define Jitter 0.05
+#define Ambient 0.3
+#define Diffuse 0.6
+#define Specular 0.072
+#define LightDir vec3(1.0,1.0,-0.65)
+#define LightDir2 vec3(1.0,-0.62886,1.0)
+#define EPSILON 0.0001
+#define MIN_DIST 30
+#define MAX_MARCHING_STEPS 155
 
 mat3 rotateX(float theta) {
     float c = cos(theta);
@@ -47,180 +70,131 @@ mat3 rotateZ(float theta) {
     );
 }
 
-vec2 rotate(vec2 a, float b)
-{
-    float c = cos(b);
-    float s = sin(b);
-    return vec2(
-        a.x * c - a.y * s,
-        a.x * s + a.y * c
-    );
+//vec2 rotate(vec2 a, float b)
+//{
+//    float c = cos(b);
+//    float s = sin(b);
+//    return vec2(
+//        a.x * c - a.y * s,
+//        a.x * s + a.y * c
+//    );
+//}
+
+vec2 rotate(vec2 v, float a) {
+	return vec2(cos(a)*v.x + sin(a)*v.y, -sin(a)*v.x + cos(a)*v.y);
 }
 
-float intersectSDF(float distA, float distB) {
-    return max(distA, distB);
+//http://www.fractalforums.com/sierpinski-gasket/kaleidoscopic-(escape-time-ifs)/
+float DE(in vec3 z)
+{	
+	// Folding 'tiling' of 3D space;
+	z  = abs(1.0-mod(z,2.0));
+	
+	float d = 1000.0;
+	for (int n = 0; n < Iterations; n++) {
+		z.xz = rotate(z.xz, musicSpeed/18.0);
+        z.xy = rotate(z.xy,4.0+cos( musicSpeed/18.0));
+		
+		if (z.x+z.y<0.0)
+            z.xy = -z.yx;
+		z = abs(z);
+
+		if (z.x+z.z<0.0) 
+            z.xz = -z.zx;
+		z = abs(z);
+		
+        if (z.x-z.y<0.0) 
+            z.xy = z.yx;
+		z = abs(z);
+		
+        if (z.x-z.z<0.0) 
+            z.xz = z.zx;
+		
+        z = z*Scale - offset*(Scale-1.0);
+		z.yz = rotate(z.yz, -musicSpeed/18.0);
+
+        float trap = length(z.x-0.5-0.5*sin(musicSpeed/10.0));
+		
+		d = min(d, trap * pow(Scale, -float(n+1)));
+	}
+	return d;
 }
 
-float unionSDF(float distA, float distB) {
-    return min(distA, distB);
+vec3 getNormal(vec3 p) {
+    return normalize(vec3(
+        DE(vec3(p.x + EPSILON, p.y, p.z)) - DE(vec3(p.x - EPSILON, p.y, p.z)),
+        DE(vec3(p.x, p.y + EPSILON, p.z)) - DE(vec3(p.x, p.y - EPSILON, p.z)),
+        DE(vec3(p.x, p.y, p.z  + EPSILON)) - DE(vec3(p.x, p.y, p.z - EPSILON))
+    ));
 }
 
-float differenceSDF(float distA, float distB) {
-    return max(distA, -distB);
+
+vec3 getLight(in vec3 color, in vec3 normal, in vec3 dir) {
+    //LightColor = vec3(abs(sin(musicSpeed * 0.2)), abs(cos(musicSpeed*0.2)), abs(sin(iTime * 0.2)));
+
+	vec3 lightDir = normalize(LightDir);
+	float specular = pow(max(0.0,dot(lightDir,-reflect(lightDir, normal))),20.0); // Phong
+	float diffuse = max(0.0,dot(-normal, lightDir)); // Lambertian
+	
+	vec3 lightDir2 = normalize(LightDir2);
+	float specular2 = pow(max(0.0,dot(lightDir2,-reflect(lightDir2, normal))),20.0); // Phong
+	float diffuse2 = max(0.0,dot(-normal, lightDir2)); // Lambertian
+	
+	return
+		(Specular*specular)*LightColor+(diffuse*Diffuse)*(LightColor*color) +
+		(Specular*specular2)*LightColor2+(diffuse2*Diffuse)*(LightColor2*color);
 }
 
-float boxSDF(vec3 p, vec3 size) {
-    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
-    vec3 d = abs(p) - (size / 2.0);
-    
-    // Assuming p is inside the cube, how far is it from the surface?
-    // Result will be negative or zero.
-    float insideDistance = min(max(d.x, max(d.y, d.z)), 0.0);
-    
-    // Assuming p is outside the cube, how far is it from the surface?
-    // Result will be positive or zero.
-    float outsideDistance = length(max(d, 0.0));
-    
-    return insideDistance + outsideDistance;
+vec3 getColor(vec3 normal, vec3 pos, float dist) {
+    vec3 musicColor = vec3(abs(sin(musicSpeed * 0.2 + dist)), abs(cos(musicSpeed*0.2 + dist)), abs(sin(musicSpeed * 0.2)));
+    musicColor += dot(musicColor, normal);
+	return mix(musicColor,abs(normal),0.3);
 }
 
-float sphereSDF(vec3 p, float r) {
-    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
-    return length(vec3(mod(p.x, 0), p.y, p.z)) - r;
+vec3 toneMap(in vec3 c) {
+	c=pow(c,vec3(2.0));
+	vec3 x = max(vec3(0.),c-vec3(0.004));
+	c = (x*(6.2*x+.5))/(x*(6.2*x+1.7)+0.06);
+	return c;
 }
 
-float cylinderSDF(vec3 p, float h, float r) {
-    //p = vec3(mod(p.x + 2, 4) - 2, p.y, mod(p.z + 2, 4) - 2);
-    // How far inside or outside the cylinder the point is, radially
-    float inOutRadius = length(p.xy) - r;
-    
-    // How far inside or outside the cylinder is, axially aligned with the cylinder
-    float inOutHeight = abs(p.z) - h/2.0;
-    
-    // Assuming p is inside the cylinder, how far is it from the surface?
-    // Result will be negative or zero.
-    float insideDistance = min(max(inOutRadius, inOutHeight), 0.0);
-
-    // Assuming p is outside the cylinder, how far is it from the surface?
-    // Result will be positive or zero.
-    float outsideDistance = length(max(vec2(inOutRadius, inOutHeight), 0.0));
-    
-    return insideDistance + outsideDistance;
+float rand(vec2 co){
+	return fract(cos(dot(co,vec2(4.898,7.23))) * 23421.631);
 }
 
-float sceneSDF(vec3 samplePoint) {    
-    // Slowly spin the whole scene
-    //samplePoint = rotateY(iTime / 2.0) * samplePoint;
-    samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, samplePoint.y, mod(samplePoint.z + 2, 4) - 2);
-    //samplePoint = vec3(mod(samplePoint.x + 2, 4) - 2, mod(samplePoint.y + 2, 4) - 2, mod(samplePoint.z + 2, 4) - 2);
-    //samplePoint.xy = rotate(samplePoint.xy, samplePoint.z*.05);
-    
-    float cylinderRadius = 0.4 + (1.0 - 0.4) * (1.0 + sin(1.7 * iTime)) / 2.0;
-    float cylinder1 = cylinderSDF(samplePoint, 2.0, cylinderRadius);
-    float cylinder2 = cylinderSDF(rotateX(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
-    float cylinder3 = cylinderSDF(rotateY(radians(90.0)) * samplePoint, 2.0, cylinderRadius);
-    
-    float cube = boxSDF(samplePoint, vec3(1.8, 1.8, 1.8));
-    
-    float sphere = sphereSDF(samplePoint, 1.2);
-    
-    float ballOffset = 0.4 + 1.0 + sin(1.7 * iTime + fft_buff[0]);
-    float ballRadius = 0.3;
-    float balls = sphereSDF(samplePoint - vec3(ballOffset, 0.0, 0.0), ballRadius);
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(ballOffset, 0.0, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, ballOffset, 0.0), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint - vec3(0.0, 0.0, ballOffset), ballRadius));
-    balls = unionSDF(balls, sphereSDF(samplePoint + vec3(0.0, 0.0, ballOffset), ballRadius));
-    
-    
-    
-    float csgNut = differenceSDF(intersectSDF(cube, sphere),
-                         unionSDF(cylinder1, unionSDF(cylinder2, cylinder3)));
-    
-    return unionSDF(balls, csgNut);
-}
-
-float shortestDistanceToSurface(vec3 eye, vec3 marchingDirection, float start, float end) {
+vec4 raymarch(vec3 eye, vec3 marchingDirection, float start) {
+    float distance;
+    vec3 pos;
+	int steps = 0;
     float depth = start;
-    for (int i = 0; i < MAX_MARCHING_STEPS; i++) {
-        float dist = sceneSDF(eye + depth * marchingDirection);
-        if (dist < EPSILON) {
-            totalDistance += depth;
-			return depth;
-        }
-        depth += dist;
-        if (depth >= end) {
-            totalDistance += end;
-            return end;
-        }
-    }
-    totalDistance += end;
-    return end;
+    float totalDistance = Jitter*rand(fragCoord+vec2(iTime));
+
+    //Standard raymarching algorithm
+    for (int i=0; i < MAX_MARCHING_STEPS; i++) {
+		pos = eye + totalDistance * marchingDirection;
+		distance = DE(pos);
+		totalDistance += distance;
+		if (distance < EPSILON) break;
+		steps = i;
+	}
+
+    float smoothStep = float(steps) + distance/EPSILON;
+    float ao = 1.0-smoothStep/float(MAX_MARCHING_STEPS);
+
+    vec3 normal = getNormal(pos-marchingDirection*normalDistance*3.0);	
+	vec3 color = getColor(normal, pos, totalDistance);	
+    vec3 light = getLight(color, normal, marchingDirection);
+
+	return vec4(toneMap((color*Ambient+light)*ao),1.0);
 }
            
 vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
     vec2 xy = fragCoord - size / 2.0;
     float z = size.y / tan(radians(fieldOfView) / 2.0);
     return normalize(vec3(xy, -z));
-}
+} 
 
-vec3 estimateNormal(vec3 p) {
-    return normalize(vec3(
-        sceneSDF(vec3(p.x + EPSILON, p.y, p.z)) - sceneSDF(vec3(p.x - EPSILON, p.y, p.z)),
-        sceneSDF(vec3(p.x, p.y + EPSILON, p.z)) - sceneSDF(vec3(p.x, p.y - EPSILON, p.z)),
-        sceneSDF(vec3(p.x, p.y, p.z  + EPSILON)) - sceneSDF(vec3(p.x, p.y, p.z - EPSILON))
-    ));
-}
-
-vec3 phongContribForLight(vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye,
-                          vec3 lightPos, vec3 lightIntensity) {
-    vec3 N = estimateNormal(p);
-    vec3 L = normalize(lightPos - p);
-    vec3 V = normalize(eye - p);
-    vec3 R = normalize(reflect(-L, N));
-    
-    float dotLN = dot(L, N);
-    float dotRV = dot(R, V);
-    
-    if (dotLN < 0.0) {
-        // Light not visible from this point on the surface
-        return vec3(0.0, 0.0, 0.0);
-    } 
-    
-    if (dotRV < 0.0) {
-        // Light reflection in opposite direction as viewer, apply only diffuse
-        // component
-        return lightIntensity * (k_d * dotLN);
-    }
-    return lightIntensity * (k_d * dotLN + k_s * pow(dotRV, alpha));
-}
-
-vec3 phongIllumination(vec3 k_a, vec3 k_d, vec3 k_s, float alpha, vec3 p, vec3 eye) {
-    const vec3 ambientLight = 0.5 * vec3(1.0, 1.0, 1.0);
-    vec3 color = ambientLight * k_a;
-    
-    vec3 light1Pos = vec3(4.0 * sin(iTime),
-                          2.0,
-                          4.0 * cos(iTime));
-    vec3 light1Intensity = vec3(0.4, 0.4, 0.4);
-    
-    color += phongContribForLight(k_d, k_s, alpha, p, eye,
-                                  light1Pos,
-                                  light1Intensity);
-    
-    vec3 light2Pos = vec3(2.0 * sin(0.37 * iTime),
-                          2.0 * cos(0.37 * iTime),
-                          2.0);
-    vec3 light2Intensity = vec3(0.4, 0.4, 0.4);
-    
-    color += phongContribForLight(k_d, k_s, alpha, p, eye,
-                                  light2Pos,
-                                  light2Intensity);    
-    return color;
-}
-
-mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
+mat3 generateViewMatrix(vec3 eye, vec3 center, vec3 up) {
     // Based on gluLookAt man page
     vec3 cameraDirection = normalize(center - eye);
     vec3 cameraRight = normalize(cross(cameraDirection, up));
@@ -230,36 +204,48 @@ mat3 viewMatrix(vec3 eye, vec3 center, vec3 up) {
 
 void main( )
 {
+    mat3 viewMatrix;
+    float slowTime = iTime * 0.2;
 	vec3 viewDir = rayDirection(45.0, iResolution.xy, fragCoord);
     //vec3 eye = vec3(8.0, 5.0 * sin(0.2 * iTime), 7.0);
-    totalDistance = 0;
-    vec3 eye = vec3(8.0, 5.0, 7.0);
+    float speed = iTime * 5 * fft_buff[0];
+    //eye = vec3(8.0, 5.0, 7.0 + vizSpeed * 2 + iTime);
+    //eye = vec3(8.0, 5.0 - slowTime * 0.5, 7.0);
+
+    musicSpeed = iTime * 0.5 + vizSpeed * 0.5;
+    
+    //eye = vec3(8.0, 5.0 - slowTime * 0.5 + vizSpeed * 0.1, 7.0);
+    //eye = vec3(0, 0, - (slowTime + vizSpeed * 0.05));
+    //eye = vec3(34,0,2);
     eye += campos;
-    
-    mat3 viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
-    
-    vec3 worldDir = viewToWorld * viewDir.xyz;
-    
-    float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
-    
-    if (dist > MAX_DIST - EPSILON) {
-        // Didn't hit anything
-        fragColor = vec4(0.0, 0.0, 0.0, 0.0);
-		return;
+    //eye += vec3(-2.04, -15.92, -1.01);
+
+    //If in VR, use the provided view matrix
+    if(VR_Enabled == 1){
+        viewMatrix = mat3(vec3(-VRdir[0][0], VRdir[0][1], VRdir[0][2]),
+                           vec3(VRdir[1][0], -VRdir[1][1], VRdir[1][2]),
+                           vec3(VRdir[2][0], VRdir[2][1], -VRdir[2][2]) );
     }
-    
-    // The closest point on the surface to the eyepoint along the view ray
-    vec3 p = eye + dist * worldDir;
-    
-    // Use the surface normal as the ambient color of the material
-    vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
-    vec3 K_d = K_a;
-    vec3 K_s = vec3(1.0, 1.0, 1.0);
-    float shininess = 10.0;
-    
-    vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-    color.r = fft_buff[0];
-    color.g = fft_buff[1];
-    //color.b = fft_buff[2];
-    fragColor = vec4(color, 1.0);
+    //Otherwise generate our own
+    else{
+        viewMatrix = generateViewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
+    }
+
+    vec3 worldDir = viewMatrix * viewDir.xyz;
+
+    offset = vec3(1.0+0.2*(cos(iTime/5.7)),0.3+0.1*(cos(iTime/1.7)),1.).xzy;
+
+    vec2 coord =-1.0+2.0*fragCoord.xy/iResolution.xy;
+	coord.x *= iResolution.x/iResolution.y;
+
+    vec3 camUp  = vec3(0,1,0);
+	vec3 camRight = normalize(cross(eye,camUp));
+	// Get direction for this pixel
+
+    vec3 camDir   = normalize(eye+cameraFront); // direction for center ray
+	
+	// Get direction for this pixel
+	vec3 rayDir = normalize(camDir + (coord.x*camRight + coord.y*camUp));
+
+    fragColor = raymarch(eye, worldDir, MIN_DIST);
 }

@@ -306,6 +306,7 @@ vec4 raymarch(vec3 eye, vec3 marchingDirection, float start) {
 	int steps = 0;
 	vec3 pos;
 
+    //Standard raymarching algorithm
     for (int i=0; i < MAX_MARCHING_STEPS; i++) {
 		pos = eye + totalDistance * marchingDirection;
 		distance = DE(pos);
@@ -411,60 +412,35 @@ void main( )
     //eye += vec3(-2.04, -15.92, -1.01);
 
     mat3 viewToWorld;
+    //If in VR, use the provided view matrix
     if(VR_Enabled == 1){
         viewToWorld = mat3(vec3(-VRdir[0][0], VRdir[0][1], VRdir[0][2]),
-                       vec3(VRdir[1][0], -VRdir[1][1], VRdir[1][2]),
-                       vec3(VRdir[2][0], VRdir[2][1], -VRdir[2][2]) );
+                           vec3(VRdir[1][0], -VRdir[1][1], VRdir[1][2]),
+                           vec3(VRdir[2][0], VRdir[2][1], -VRdir[2][2]) );
     }
-    else
+    //Otherwise generate our own
+    else{
         viewToWorld = viewMatrix(eye, eye + cameraFront, vec3(0.0, 1.0, 0.0));
+    }
 
     vec3 worldDir = viewToWorld * viewDir.xyz;
     //worldDir.y *= -1;
 
-    bool fractal = true;
-    if(!fractal){
-        float dist = shortestDistanceToSurface(eye, worldDir, MIN_DIST, MAX_DIST);
-    
-        if (dist > MAX_DIST - EPSILON) {
-            // Didn't hit anything
-            fragColor = vec4(0.0, 0.0, 0.0, 0.0);
-		    return;
-        }
-    
-        // The closest point on the surface to the eyepoint along the view ray
-        vec3 p = eye + dist * worldDir;
-    
-        // Use the surface normal as the ambient color of the material
-        vec3 K_a = (estimateNormal(p) + vec3(1.0)) / 2.0;
-        vec3 K_d = K_a;
-        vec3 K_s = vec3(1.0, 1.0, 1.0);
-        float shininess = 10.0;
-    
-        vec3 color = phongIllumination(K_a, K_d, K_s, shininess, p, eye);
-        color.r = fft_buff[0];
-        color.g = fft_buff[1];
-        color.b = fft_buff[2];
-        color = debugColor;
-        fragColor = vec4(color, 1.0);
-    }
-    else{
-        offset = vec3(1.0+0.2*(cos(iTime/5.7)),0.3+0.1*(cos(iTime/1.7)),1.).xzy;;
+    offset = vec3(1.0+0.2*(cos(iTime/5.7)),0.3+0.1*(cos(iTime/1.7)),1.).xzy;;
 
-        vec2 coord =-1.0+2.0*fragCoord.xy/iResolution.xy;
-	    coord.x *= iResolution.x/iResolution.y;
+    vec2 coord =-1.0+2.0*fragCoord.xy/iResolution.xy;
+	coord.x *= iResolution.x/iResolution.y;
 
-    	vec3 camUp  = vec3(0,1,0);
-	    vec3 camRight = normalize(cross(eye,camUp));
-	    // Get direction for this pixel
+    vec3 camUp  = vec3(0,1,0);
+	vec3 camRight = normalize(cross(eye,camUp));
+	// Get direction for this pixel
 
-        //vec3 camPos = vec3(1.0,0.0,0.0);
+    //vec3 camPos = vec3(1.0,0.0,0.0);
 
-        vec3 camDir   = normalize(eye+cameraFront); // direction for center ray
+    vec3 camDir   = normalize(eye+cameraFront); // direction for center ray
 	
-	    // Get direction for this pixel
-	    vec3 rayDir = normalize(camDir + (coord.x*camRight + coord.y*camUp));
+	// Get direction for this pixel
+	vec3 rayDir = normalize(camDir + (coord.x*camRight + coord.y*camUp));
 
-        fragColor = raymarch(eye, worldDir, MIN_DIST);
-    }
+    fragColor = raymarch(eye, worldDir, MIN_DIST);
 }

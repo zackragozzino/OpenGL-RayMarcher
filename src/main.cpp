@@ -390,7 +390,7 @@ public:
 
         raymarchShader = std::make_shared<Program>();
         raymarchShader->setVerbose(true);
-        raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_tester.glsl");
+        raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_frag.glsl");
         if (!raymarchShader->init())
         {
             std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
