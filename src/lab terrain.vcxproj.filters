@@ -14,7 +14,6 @@
     <ClCompile Include="recAudio.cpp" />
     <ClCompile Include="recordAudio.cpp" />
     <ClCompile Include="OpenVRclass.cpp" />
-    <ClCompile Include="double_algebra.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Program.h" />
@@ -30,7 +29,6 @@
     <ClInclude Include="kissfft.hh" />
     <ClInclude Include="recordAudio.h" />
     <ClInclude Include="OpenVRclass.h" />
-    <ClInclude Include="double_algebra.h" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="ext">
