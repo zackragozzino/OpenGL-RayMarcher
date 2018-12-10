@@ -20,14 +20,17 @@ CPE/CSC 471 Lab base code Wood/Dunn/Eckhardt
 // value_ptr for glm
 #include <glm/gtc/type_ptr.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
 using namespace std;
 using namespace glm;
 shared_ptr<Shape> shape;
 extern captureAudio actualAudioData;
 
+//#define VR_ENABLED
 
+#ifdef VR_ENABLED
 OpenVRApplication *vrapp = NULL;
-
+#endif 
 
 #define FFTW_ESTIMATEE (1U << 6)
 #define FFT_MAXSIZE 500
@@ -82,9 +85,9 @@ bool fft(float *amplitude_on_frequency, int &length)
     for (int i = 0; i < length / 2 && i < FFT_MAXSIZE; ++i)
     {
         float diff = amplitude_on_frequency_old[i] - amplitude_on_frequency[i];
-        float attack_factor = 0.5;//for going down
+        float attack_factor = 1;//for going down
         if (amplitude_on_frequency_old[i] < amplitude_on_frequency[i])
-            attack_factor = 0.5; //for going up
+            attack_factor = 1; //for going up
         diff *= attack_factor;
         amplitude_on_frequency[i] = amplitude_on_frequency_old[i] - diff;
     }
@@ -110,11 +113,11 @@ BYTE delayfilter(BYTE old, BYTE actual, float mul)
 
 double get_last_elapsed_time()
 {
-	static double lasttime = glfwGetTime();
-	double actualtime =glfwGetTime();
-	double difference = actualtime- lasttime;
-	lasttime = actualtime;
-	return difference;
+    static double lasttime = glfwGetTime();
+    double actualtime = glfwGetTime();
+    double difference = actualtime - lasttime;
+    lasttime = actualtime;
+    return difference;
 }
 
 class Mouse
@@ -200,23 +203,23 @@ class Application : public EventCallbacks
 
 public:
 
-	WindowManager * windowManager = nullptr;
+    WindowManager * windowManager = nullptr;
     Mouse mouse;
     camera mycam;
     glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 
     float vizSpeed = 0;
-
+    float fft_buff[10];
     bool showVisualizer = false;
 
-	// Our shader program
-	std::shared_ptr<Program> raymarchShader, prog;
+    // Our shader program
+    std::shared_ptr<Program> raymarchShader, prog;
 
-	// Contains vertex information for OpenGL
-	GLuint VertexArrayID;
+    // Contains vertex information for OpenGL
+    GLuint VertexArrayID;
 
-	// Data necessary to give our box to OpenGL
-	GLuint MeshPosID, MeshTexID, IndexBufferIDBox;
+    // Data necessary to give our box to OpenGL
+    GLuint MeshPosID, MeshTexID, IndexBufferIDBox;
 
     GLuint VertexArrayIDBox, VertexBufferIDBox, VertexBufferTex;
 
@@ -227,50 +230,50 @@ public:
     float amplitude_on_frequency[FFT_MAXSIZE];
     float amplitude_on_frequency_10steps[10];
 
-	void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
-	{
-		if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-		{
-			glfwSetWindowShouldClose(window, GL_TRUE);
-		}
+    void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods)
+    {
+        if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+        {
+            glfwSetWindowShouldClose(window, GL_TRUE);
+        }
 
         if (key == GLFW_KEY_SPACE && action == GLFW_PRESS) {
             showVisualizer = !showVisualizer;
         }
-		
-		if (key == GLFW_KEY_W && action == GLFW_PRESS)
-		{
-			mycam.w = 1;
-		}
-		if (key == GLFW_KEY_W && action == GLFW_RELEASE)
-		{
-			mycam.w = 0;
-		}
-		if (key == GLFW_KEY_S && action == GLFW_PRESS)
-		{
-			mycam.s = 1;
-		}
-		if (key == GLFW_KEY_S && action == GLFW_RELEASE)
-		{
-			mycam.s = 0;
-		}
-		if (key == GLFW_KEY_A && action == GLFW_PRESS)
-		{
-			mycam.a = 1;
-		}
-		if (key == GLFW_KEY_A && action == GLFW_RELEASE)
-		{
-			mycam.a = 0;
-		}
-		if (key == GLFW_KEY_D && action == GLFW_PRESS)
-		{
-			mycam.d = 1;
-		}
-		if (key == GLFW_KEY_D && action == GLFW_RELEASE)
-		{
-			mycam.d = 0;
-		}
-	}
+
+        if (key == GLFW_KEY_W && action == GLFW_PRESS)
+        {
+            mycam.w = 1;
+        }
+        if (key == GLFW_KEY_W && action == GLFW_RELEASE)
+        {
+            mycam.w = 0;
+        }
+        if (key == GLFW_KEY_S && action == GLFW_PRESS)
+        {
+            mycam.s = 1;
+        }
+        if (key == GLFW_KEY_S && action == GLFW_RELEASE)
+        {
+            mycam.s = 0;
+        }
+        if (key == GLFW_KEY_A && action == GLFW_PRESS)
+        {
+            mycam.a = 1;
+        }
+        if (key == GLFW_KEY_A && action == GLFW_RELEASE)
+        {
+            mycam.a = 0;
+        }
+        if (key == GLFW_KEY_D && action == GLFW_PRESS)
+        {
+            mycam.d = 1;
+        }
+        if (key == GLFW_KEY_D && action == GLFW_RELEASE)
+        {
+            mycam.d = 0;
+        }
+    }
 
     void mouseCallback(GLFWwindow *window, int button, int action, int mods)
     {
@@ -283,75 +286,18 @@ public:
 
     }
 
-	//if the window is resized, capture the new size and reset the viewport
-	void resizeCallback(GLFWwindow *window, int in_width, int in_height)
-	{
-		//get the window size - may be different then pixels for retina
-		int width, height;
-		glfwGetFramebufferSize(window, &width, &height);
-		glViewport(0, 0, width, height);
-	}
-//#define MESHSIZE 100
-//	void init_mesh()
-//	{
-//		//generate the VAO
-//		glGenVertexArrays(1, &VertexArrayID);
-//		glBindVertexArray(VertexArrayID);
-//
-//		//generate vertex buffer to hand off to OGL
-//		glGenBuffers(1, &MeshPosID);
-//		glBindBuffer(GL_ARRAY_BUFFER, MeshPosID);
-//		vec3 vertices[MESHSIZE * MESHSIZE * 4];
-//		for(int x=0;x<MESHSIZE;x++)
-//			for (int z = 0; z < MESHSIZE; z++)
-//				{
-//				vertices[x * 4 + z*MESHSIZE * 4 + 0] = vec3(0.0, 0.0, 0.0) + vec3(x, 0, z);
-//				vertices[x * 4 + z*MESHSIZE * 4 + 1] = vec3(1.0, 0.0, 0.0) + vec3(x, 0, z);
-//				vertices[x * 4 + z*MESHSIZE * 4 + 2] = vec3(1.0, 0.0, 1.0) + vec3(x, 0, z);
-//				vertices[x * 4 + z*MESHSIZE * 4 + 3] = vec3(0.0, 0.0, 1.0) + vec3(x, 0, z);
-//				}
-//		glBufferData(GL_ARRAY_BUFFER, sizeof(vec3) * MESHSIZE * MESHSIZE * 4, vertices, GL_DYNAMIC_DRAW);
-//		glEnableVertexAttribArray(0);
-//		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-//		//tex coords
-//		float t = 1. / 100;
-//		vec2 tex[MESHSIZE * MESHSIZE * 4];
-//		for (int x = 0; x<MESHSIZE; x++)
-//			for (int y = 0; y < MESHSIZE; y++)
-//			{
-//				tex[x * 4 + y*MESHSIZE * 4 + 0] = vec2(0.0, 0.0)+ vec2(x, y)*t;
-//				tex[x * 4 + y*MESHSIZE * 4 + 1] = vec2(t, 0.0)+ vec2(x, y)*t;
-//				tex[x * 4 + y*MESHSIZE * 4 + 2] = vec2(t, t)+ vec2(x, y)*t;
-//				tex[x * 4 + y*MESHSIZE * 4 + 3] = vec2(0.0, t)+ vec2(x, y)*t;
-//			}
-//		glGenBuffers(1, &MeshTexID);
-//		//set the current state to focus on our vertex buffer
-//		glBindBuffer(GL_ARRAY_BUFFER, MeshTexID);
-//		glBufferData(GL_ARRAY_BUFFER, sizeof(vec2) * MESHSIZE * MESHSIZE * 4, tex, GL_STATIC_DRAW);
-//		glEnableVertexAttribArray(1);
-//		glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 0, (void*)0);
-//
-//		glGenBuffers(1, &IndexBufferIDBox);
-//		//set the current state to focus on our vertex buffer
-//		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, IndexBufferIDBox);
-//		GLushort elements[MESHSIZE * MESHSIZE * 6];
-//		int ind = 0;
-//		for (int i = 0; i<MESHSIZE * MESHSIZE * 6; i+=6, ind+=4)
-//			{
-//			elements[i + 0] = ind + 0;
-//			elements[i + 1] = ind + 1;
-//			elements[i + 2] = ind + 2;
-//			elements[i + 3] = ind + 0;
-//			elements[i + 4] = ind + 2;
-//			elements[i + 5] = ind + 3;
-//			}			
-//		glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLushort)*MESHSIZE * MESHSIZE * 6, elements, GL_STATIC_DRAW);
-//		glBindVertexArray(0);
-//	}
+    //if the window is resized, capture the new size and reset the viewport
+    void resizeCallback(GLFWwindow *window, int in_width, int in_height)
+    {
+        //get the window size - may be different then pixels for retina
+        int width, height;
+        glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
+    }
 
-	/*Note that any gl calls must always happen after a GL state is initialized */
-	void initGeom()
-	{
+    /*Note that any gl calls must always happen after a GL state is initialized */
+    void initGeom()
+    {
         //init rectangle mesh (2 triangles) for the post processing
         glGenVertexArrays(1, &VertexArrayIDBox);
         glBindVertexArray(VertexArrayIDBox);
@@ -430,24 +376,24 @@ public:
         glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
         glBindVertexArray(0);
 
-	}
+    }
 
-	//General OGL initialization - set OGL state here
-	void init(const std::string& resourceDirectory)
-	{
-		GLSL::checkVersion();
+    //General OGL initialization - set OGL state here
+    void init(const std::string& resourceDirectory)
+    {
+        GLSL::checkVersion();
 
-		// Set background color.
-		glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-		// Enable z-buffer test.
-		glEnable(GL_DEPTH_TEST);
+        // Set background color.
+        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+        // Enable z-buffer test.
+        glEnable(GL_DEPTH_TEST);
 
         raymarchShader = std::make_shared<Program>();
         raymarchShader->setVerbose(true);
         raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_tester.glsl");
         if (!raymarchShader->init())
         {
-                std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
+            std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
             exit(1);
         }
         raymarchShader->addUniform("P");
@@ -458,7 +404,9 @@ public:
         raymarchShader->addUniform("campos");
         raymarchShader->addUniform("cameraFront");
         raymarchShader->addUniform("iResolution");
+        raymarchShader->addUniform("VRdir");
         raymarchShader->addUniform("fft_buff");
+        raymarchShader->addUniform("VR_Enabled");
         raymarchShader->addAttribute("vertPos");
         raymarchShader->addAttribute("vertTex");
 
@@ -479,7 +427,7 @@ public:
         prog->addAttribute("vertNor");
         prog->addAttribute("vertTex");
 
-	}
+    }
 
     //*******************
     void aquire_fft_scaling_arrays()
@@ -562,7 +510,7 @@ public:
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
         glm::mat4 V, M, P; //View, Model and Perspective matrix
-       
+
         V = glm::mat4(1);
         P = glm::perspective((float)(3.14159 / 4.), (float)((float)width / (float)height), 0.01f, 100000.0f); //so much type casting... GLM metods are quite funny ones
 
@@ -598,7 +546,18 @@ public:
         prog->unbind();
     }
 
-    void render_to_screen()
+    void updateFFTValues() {
+        aquire_fft_scaling_arrays();
+
+        for (int i = 0; i < 10; i++) {
+            fft_buff[i] = amplitude_on_frequency_10steps[i] * 2;
+            //cout << fft_buff[i] << " ";
+        }
+
+        vizSpeed += fft_buff[0] + fft_buff[1] + fft_buff[2];
+    }
+
+    void render_fractals()
     {
 
         int width, height;
@@ -620,20 +579,11 @@ public:
         //    shape->draw(prog, FALSE);
         //}
 
-        aquire_fft_scaling_arrays();
-        
-        float fft_buff[10];
-        for (int i = 0; i < 10; i++) {
-            fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.2 * 10;
-            cout << fft_buff[i] << " ";
-        }
-
-        cout << "------" << endl;
+        updateFFTValues();
 
         raymarchShader->bind();
 
-        vizSpeed += fft_buff[0] + fft_buff[1];
-        
+        glUniform1i(raymarchShader->getUniform("VR_Enabled"), 0);
         glUniform1fv(raymarchShader->getUniform("fft_buff"), 10, fft_buff);
         glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
         glUniform3fv(raymarchShader->getUniform("cameraFront"), 1, &cameraFront.x);
@@ -653,49 +603,37 @@ public:
         //cout << mycam.pos.x << "," << mycam.pos.y << "," << mycam.pos.z << endl;
     }
 
-
     void render_vr(int width, int height, glm::mat4 VRheadmatrix) {
         //int width, height;
         glfwGetFramebufferSize(windowManager->getHandle(), &width, &height);
         float aspect = width / (float)height;
-        glViewport(0, 0, width, height);
+        // glViewport(0, 0, width, height);
         float iResolution[2] = { width, height };
 
-        mycam.trackingM = VRheadmatrix;
+        //mycam.trackingM = VRheadmatrix;
 
         // Clear framebuffer.
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        //for (int i = 0; i < 10; i++)
-        //{
-        //    vec3 color = vec3(1, 0, (float)i / 10.);
-        //    glUniform3fv(prog->getUniform("colorext"), 1, &color.x);
-        //    float scaling = amplitude_on_frequency_10steps[i] * 0.2;
-        //    M = glm::translate(glm::mat4(1.0f), vec3(-4.5 + i, 2, -9)) * glm::scale(mat4(1), vec3(0.2 + scaling, 0.2 + scaling, 0.2 + scaling));
-        //    glUniformMatrix4fv(prog->getUniform("M"), 1, GL_FALSE, &M[0][0]);
-        //    shape->draw(prog, FALSE);
-        //}
-
-        aquire_fft_scaling_arrays();
-
-        float fft_buff[10];
-        for (int i = 0; i < 10; i++) {
-            fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.2 * 10;
-            cout << fft_buff[i] << " ";
-        }
-
-        cout << "------" << endl;
+        updateFFTValues();
 
         raymarchShader->bind();
 
-        vizSpeed += fft_buff[0] + fft_buff[1];
+        //cout << glm::to_string(VRheadmatrix) << endl;
 
+        //vec2 VR_Resolution = vec2(vrapp->get_render_width(), vrapp->get_render_height());
+        //vec2 VR_Resolution = vec2(1080, 1200);
+        vec2 VR_Resolution = vec2(width, height);
+        //cout << VR_Resolution.x << ", " << VR_Resolution.y << endl;
+
+        glUniform1i(raymarchShader->getUniform("VR_Enabled"), 1);
         glUniform1fv(raymarchShader->getUniform("fft_buff"), 10, fft_buff);
         glUniform3fv(raymarchShader->getUniform("campos"), 1, &mycam.pos.x);
         glUniform3fv(raymarchShader->getUniform("cameraFront"), 1, &cameraFront.x);
         glUniform1f(raymarchShader->getUniform("iTime"), glfwGetTime());
         glUniform1f(raymarchShader->getUniform("vizSpeed"), vizSpeed);
-        glUniform2fv(raymarchShader->getUniform("iResolution"), 1, iResolution);
+        glUniform2fv(raymarchShader->getUniform("iResolution"), 1, &VR_Resolution.x);
+        glUniformMatrix4fv(raymarchShader->getUniform("VRdir"), 1, GL_FALSE, &VRheadmatrix[0][0]);
         glBindVertexArray(VertexArrayIDBox);
         glDrawArrays(GL_TRIANGLES, 0, 6);
 
@@ -707,7 +645,6 @@ public:
         mycam.process(&cameraFront);
 
     }
-	
 
 };
 
@@ -720,58 +657,63 @@ void renderfct(int w, int h, glm::mat4 VRheadmatrix)
 //******************************************************************************************
 int main(int argc, char **argv)
 {
-	std::string resourceDir = "../resources"; // Where the resources are loaded from
-	if (argc >= 2)
-	{
-		resourceDir = argv[1];
-	}
+    std::string resourceDir = "../resources"; // Where the resources are loaded from
+    if (argc >= 2)
+    {
+        resourceDir = argv[1];
+    }
 
-	application = new Application();
+    application = new Application();
 
-	/* your main will always include a similar set up to establish your window
-		and GL context, etc. */
-	WindowManager * windowManager = new WindowManager();
+    /* your main will always include a similar set up to establish your window
+        and GL context, etc. */
+    WindowManager * windowManager = new WindowManager();
 
+#ifdef VR_ENABLED
     vrapp = new OpenVRApplication();
-
-	//windowManager->init(1280, 720);
     windowManager->init(vrapp->get_render_width(), vrapp->get_render_height());
-    
-    windowManager->setEventCallbacks(application);
-	application->windowManager = windowManager;
-
-	/* This is the code that will likely change program to program as you
-		may need to initialize or set up different data and state */
-	// Initialize scene.
-	application->init(resourceDir);
-	application->initGeom();
     vrapp->init_buffers(resourceDir);
+#else
+    windowManager->init(1280, 720);
+#endif 
+
+    windowManager->setEventCallbacks(application);
+    application->windowManager = windowManager;
+
+    /* This is the code that will likely change program to program as you
+        may need to initialize or set up different data and state */
+        // Initialize scene.
+    application->init(resourceDir);
+    application->initGeom();
+
 
     thread t1(start_recording);
-	// Loop until the user closes the window.
-	while(! glfwWindowShouldClose(windowManager->getHandle()))
-	{
-		// Render scene.
-        //application->render_to_screen();
-        
-        // Render the music visualizer.
-        //if(application->showVisualizer)
-        //    application->render();
-        //else
-        //    application->render_to_screen();
+    // Loop until the user closes the window.
+    while (!glfwWindowShouldClose(windowManager->getHandle()))
+    {
 
+#ifdef VR_ENABLED
         vrapp->render_to_VR(renderfct);
         vrapp->render_to_screen(1);
+#else
 
-		// Swap front and back buffers.
-		glfwSwapBuffers(windowManager->getHandle());
-		// Poll for and process events.
-		glfwPollEvents();
-	}
+        //Render the music visualizer.
+        if (application->showVisualizer)
+            application->render();
+        //Render raymarched scene
+        else
+            application->render_fractals();
+#endif 
+
+        // Swap front and back buffers.
+        glfwSwapBuffers(windowManager->getHandle());
+        // Poll for and process events.
+        glfwPollEvents();
+    }
 
     t1.join();
 
-	// Quit program.
-	windowManager->shutdown();
-	return 0;
+    // Quit program.
+    windowManager->shutdown();
+    return 0;
 }
