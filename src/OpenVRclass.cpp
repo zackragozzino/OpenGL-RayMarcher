@@ -1,3 +1,5 @@
+
+#ifdef VR_ENABLED
 #include "OpenVRclass.h"
 #include <iostream>
 #include <string>
@@ -289,3 +291,4 @@ void OpenVRApplication::render_to_FBO(int selectFBO, void(*renderfunction)(int, 
 	glGenerateMipmap(GL_TEXTURE_2D);
 
 }
+#endif 

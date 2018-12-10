@@ -10,7 +10,6 @@ CPE/CSC 471 Lab base code Wood/Dunn/Eckhardt
 #include "Program.h"
 #include "recordAudio.h"
 #include "MatrixStack.h"
-#include "OpenVRclass.h"
 
 #include "WindowManager.h"
 #include "camera.h"
@@ -29,6 +28,7 @@ extern captureAudio actualAudioData;
 //#define VR_ENABLED
 
 #ifdef VR_ENABLED
+#include "OpenVRclass.h"
 OpenVRApplication *vrapp = NULL;
 #endif 
 

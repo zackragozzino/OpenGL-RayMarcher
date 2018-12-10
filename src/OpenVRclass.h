@@ -58,6 +58,7 @@
 //
 //##############################################################################################################################################################
 
+#ifdef VR_ENABLED
 
 #pragma once
 #include <openvr.h>
@@ -111,4 +112,5 @@ public:
 	unsigned int get_FBO_texture(int i) { if (i < 0 || i>3)return 0; return FBOtexture[i]; }
 	void render_to_screen(int texture_num);
 };
+#endif 
 
