@@ -1,8 +1,8 @@
 # Echo Chamber /// OpenGL Music Visualizer
 
 ## Getting it to Run
-- In for the app to read audio data, you need to run it on a Windows computer
-- IMPORTANT: Go to the sound window in the control panel, click on the "Recording" tab, and enable the Stereo Mix
+- This app only runs on Windows computers
+- IMPORTANT: Go to the sound window in the control panel, click on the "Recording" tab, and enable the Stereo Mix (without this, the app can't read computer audio)
 
 ## VR
 - VR functionality is currently a WIP. If you wish to enable it, uncomment the #define VR_ENABLED
