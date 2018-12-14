@@ -25,6 +25,8 @@ using namespace glm;
 shared_ptr<Shape> shape;
 extern captureAudio actualAudioData;
 
+#define AUDIO_SENSITIVITY 2
+
 //#define VR_ENABLED
 
 #ifdef VR_ENABLED
@@ -550,7 +552,7 @@ public:
         aquire_fft_scaling_arrays();
 
         for (int i = 0; i < 10; i++) {
-            fft_buff[i] = amplitude_on_frequency_10steps[i] * 2;
+            fft_buff[i] = amplitude_on_frequency_10steps[i] * AUDIO_SENSITIVITY;
             //fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
             //cout << fft_buff[i] << " ";
         }
