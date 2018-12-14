@@ -551,10 +551,11 @@ public:
 
         for (int i = 0; i < 10; i++) {
             fft_buff[i] = amplitude_on_frequency_10steps[i] * 2;
+            //fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
             //cout << fft_buff[i] << " ";
         }
 
-        vizSpeed += fft_buff[0] + fft_buff[1] + fft_buff[2];
+        vizSpeed += (fft_buff[0] + fft_buff[1] + fft_buff[2]);
     }
 
     void render_fractals()

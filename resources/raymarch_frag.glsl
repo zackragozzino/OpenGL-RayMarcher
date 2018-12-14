@@ -70,16 +70,6 @@ mat3 rotateZ(float theta) {
     );
 }
 
-//vec2 rotate(vec2 a, float b)
-//{
-//    float c = cos(b);
-//    float s = sin(b);
-//    return vec2(
-//        a.x * c - a.y * s,
-//        a.x * s + a.y * c
-//    );
-//}
-
 vec2 rotate(vec2 v, float a) {
 	return vec2(cos(a)*v.x + sin(a)*v.y, -sin(a)*v.x + cos(a)*v.y);
 }
@@ -89,7 +79,7 @@ float DE(in vec3 z)
 {	
 	// Folding 'tiling' of 3D space;
 	z  = abs(1.0-mod(z,2.0));
-	
+
 	float d = 1000.0;
 	for (int n = 0; n < Iterations; n++) {
 		z.xz = rotate(z.xz, musicSpeed/18.0);
@@ -195,7 +185,7 @@ vec3 rayDirection(float fieldOfView, vec2 size, vec2 fragCoord) {
 } 
 
 mat3 generateViewMatrix(vec3 eye, vec3 center, vec3 up) {
-    // Based on gluLookAt man page
+    // Based on gluLookAt
     vec3 cameraDirection = normalize(center - eye);
     vec3 cameraRight = normalize(cross(cameraDirection, up));
     vec3 cameraUp = cross(cameraRight, cameraDirection);
@@ -217,6 +207,7 @@ void main( )
     //eye = vec3(8.0, 5.0 - slowTime * 0.5 + vizSpeed * 0.1, 7.0);
     //eye = vec3(0, 0, - (slowTime + vizSpeed * 0.05));
     //eye = vec3(34,0,2);
+    //eye.z -= iTime;
     eye += campos;
     //eye += vec3(-2.04, -15.92, -1.01);
 
