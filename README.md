@@ -9,5 +9,5 @@
 
 ## Audio Sensitivity
 - You will need to modify the AUDIO_SENSITIVITY #define based on how loud your music is (currently working on fixing this issue).
+- Incorrect audio sensitivity may result in visuals that are too fast or too slow relative to the music
 - Generally, if found that a value of 2 is good for playback on headphones, and a value of 0.1 is good for playback on speakers
-- If you don't do this, you may find that the visuals are too fast or too slow relative to the music
