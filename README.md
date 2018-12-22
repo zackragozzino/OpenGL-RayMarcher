@@ -1,5 +1,9 @@
 # Echo Chamber /// OpenGL Music Visualizer
 
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=wiJvpwkGFrM
+" target="_blank"><img src="http://img.youtube.com/vi/wiJvpwkGFrM/0.jpg" 
+alt="IMAGE ALT TEXT HERE" width="240" height="180" border="10" /></a>
+
 ## Getting it to Run
 - This app only runs on Windows computers
 - IMPORTANT: Go to the sound window in the control panel, click on the "Recording" tab, and enable the Stereo Mix (without this, the app can't read computer audio)
