@@ -552,8 +552,8 @@ public:
         aquire_fft_scaling_arrays();
 
         for (int i = 0; i < 10; i++) {
-           //fft_buff[i] = amplitude_on_frequency_10steps[i] * AUDIO_SENSITIVITY;
-           fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
+           fft_buff[i] = amplitude_on_frequency_10steps[i] * AUDIO_SENSITIVITY;
+           //fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
             //cout << fft_buff[i] << " ";
         }
 

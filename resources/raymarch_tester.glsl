@@ -74,40 +74,109 @@ vec2 rotate(vec2 v, float a) {
 	return vec2(cos(a)*v.x + sin(a)*v.y, -sin(a)*v.x + cos(a)*v.y);
 }
 
+float intersectSDF(float distA, float distB) {
+    return max(distA, distB);
+}
+
+float unionSDF(float distA, float distB) {
+    return min(distA, distB);
+}
+
+float differenceSDF(float distA, float distB) {
+    return max(distA, -distB);
+}
+
+
+float boxSDF(vec3 p, vec3 size) {
+    vec3 d = abs(p) - (size / 2.0);
+    
+    // Assuming p is inside the cube, how far is it from the surface?
+    // Result will be negative or zero.
+    float insideDistance = min(max(d.x, max(d.y, d.z)), 0.0);
+    
+    // Assuming p is outside the cube, how far is it from the surface?
+    // Result will be positive or zero.
+    float outsideDistance = length(max(d, 0.0));
+    
+    return insideDistance + outsideDistance;
+}
+
+float remap(float value, float low1, float high1, float low2, float high2){
+
+    return low2 + (value - low1) * (high2 - low2) / (high1 - low1);
+}
+
+
 //http://www.fractalforums.com/sierpinski-gasket/kaleidoscopic-(escape-time-ifs)/
 float DE(in vec3 z)
 {	
 	// Folding 'tiling' of 3D space;
-	z  = abs(1.0-mod(z,2.0));
+	//z  = abs(1.0-mod(z,2.0));
 
+    int space = 1;
 	float d = 1000.0;
-	for (int n = 0; n < Iterations; n++) {
-		z.xz = rotate(z.xz, musicSpeed/18.0);
-        z.xy = rotate(z.xy,4.0+cos( musicSpeed/18.0));
-		
-		if (z.x+z.y<0.0)
-            z.xy = -z.yx;
-		z = abs(z);
+    z.z += 20;
 
-		if (z.x+z.z<0.0) 
-            z.xz = -z.zx;
-		z = abs(z);
-		
-        if (z.x-z.y<0.0) 
-            z.xy = z.yx;
-		z = abs(z);
-		
-        if (z.x-z.z<0.0) 
-            z.xz = z.zx;
-		
-        z = z*Scale - offset*(Scale-1.0);
-		z.yz = rotate(z.yz, -musicSpeed/18.0);
 
-        float trap = length(z.x-0.5-0.5*sin(musicSpeed/10.0));
-		
-		d = min(d, trap * pow(Scale, -float(n+1)));
-	}
-	return d;
+
+    z *= rotateY(145);
+    z *= rotateX(45);
+    
+    z.xz = rotate(z.xz, iTime / 2);
+    z.xy = rotate(z.xy,4.0+cos( iTime / 2));
+
+    float size = abs(sin(iTime));
+
+          //float offSet = ((x*y*z))/a;
+          float ballOffset = 1;
+          //z.x += x;
+//          dist = unionSDF( dist, boxSDF(z - vec3(ballOffset, 0.0, 0.0), vec3(size) ) );
+//          dist = unionSDF( dist, boxSDF(z + vec3(ballOffset, 0.0, 0.0), vec3(size)));
+
+    for (int x = -space; x <= space; x += 1) {
+    for (int y = -space; y <= space; y += 1) {
+    for (int zz = -space; zz <= space; zz += 1) {
+        
+        float sz = remap( sin(x*y*zz * iTime), -1.0, 1.0, 0.0, 2.0 );
+        
+        d = unionSDF( d, boxSDF(z + vec3(x, y, zz), vec3(sz) ) );
+    }
+    }
+    }
+
+
+
+    return d;
+   // float cube = boxSDF(z, vec3(size));
+    //return cube;
+
+//	for (int n = 0; n < Iterations; n++) {
+//		z.xz = rotate(z.xz, musicSpeed/18.0);
+//        z.xy = rotate(z.xy,4.0+cos( musicSpeed/18.0));
+//		
+//		if (z.x+z.y<0.0)
+//            z.xy = -z.yx;
+//		z = abs(z);
+//
+//		if (z.x+z.z<0.0) 
+//            z.xz = -z.zx;
+//		z = abs(z);
+//		
+//        if (z.x-z.y<0.0) 
+//            z.xy = z.yx;
+//		z = abs(z);
+//		
+//        if (z.x-z.z<0.0) 
+//            z.xz = z.zx;
+//		
+//        z = z*Scale - offset*(Scale-1.0);
+//		z.yz = rotate(z.yz, -musicSpeed/18.0);
+//
+//        float trap = length(z.x-0.5-0.5*sin(musicSpeed/10.0));
+//		
+//		d = min(d, trap * pow(Scale, -float(n+1)));
+//	}
+	//return d;
 }
 
 vec3 getNormal(vec3 p) {
