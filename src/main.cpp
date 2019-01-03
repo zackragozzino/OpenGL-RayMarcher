@@ -392,7 +392,7 @@ public:
 
         raymarchShader = std::make_shared<Program>();
         raymarchShader->setVerbose(true);
-        raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_frag.glsl");
+        raymarchShader->setShaderNames(resourceDirectory + "/vert.glsl", resourceDirectory + "/raymarch_tester.glsl");
         if (!raymarchShader->init())
         {
             std::cerr << "One or more shaders failed to compile... exiting!" << std::endl;
@@ -552,8 +552,8 @@ public:
         aquire_fft_scaling_arrays();
 
         for (int i = 0; i < 10; i++) {
-            fft_buff[i] = amplitude_on_frequency_10steps[i] * AUDIO_SENSITIVITY;
-            //fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
+           //fft_buff[i] = amplitude_on_frequency_10steps[i] * AUDIO_SENSITIVITY;
+           fft_buff[i] = amplitude_on_frequency_10steps[i] * 0.1;
             //cout << fft_buff[i] << " ";
         }
 

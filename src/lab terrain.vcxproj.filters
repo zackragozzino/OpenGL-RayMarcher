@@ -57,22 +57,19 @@
     <None Include="..\resources\vert.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\resources\raymarch_tester.glsl">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="..\resources\fft_shader_fragment.glsl">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\resources\fft_shader_vertex.glsl">
       <Filter>shaders</Filter>
     </None>
-    <None Include="..\resources\raymarch_tester2.glsl">
-      <Filter>shaders</Filter>
-    </None>
     <None Include="..\resources\FBOfragment.glsl">
       <Filter>shaders</Filter>
     </None>
     <None Include="..\resources\FBOvertex.glsl">
+      <Filter>shaders</Filter>
+    </None>
+    <None Include="..\resources\raymarch_tester.glsl">
       <Filter>shaders</Filter>
     </None>
   </ItemGroup>
